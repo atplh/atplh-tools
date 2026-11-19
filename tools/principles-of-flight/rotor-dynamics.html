@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive main-rotor simulator: feathering, coning, flapping, lead-lag, phase lag, flapback, transverse flow, translational lift and retreating blade stall." />
+    <link rel="icon" type="image/svg+xml" href="../../atplh-tools-rotor.svg" />
+    <title>Rotor dynamics</title>
+    <style>
+      :root {
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-2: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
+        --text: #e8eef5;
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --pitch: #efc36a;
+        --flap: #5fd0b5;
+        --lag: #b49cf0;
+        --flow: #7fb8e6;
+        --bad: #f08a7a;
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font: 600 0.78rem ui-monospace, Consolas, monospace;
+        letter-spacing: 0.06em;
+      }
+
+      h1 { margin: 4px 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+      .lead { margin: 0; color: var(--muted); max-width: 760px; }
+
+      button, select, input { font: inherit; color: inherit; }
+      button:focus-visible, select:focus-visible, input:focus-visible, .pad:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* ---------- Effects selector ---------- */
+      .effects {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 24px 0 14px;
+      }
+
+      .effects button {
+        padding: 6px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.86rem;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+
+      .effects button:hover { color: var(--text); background: var(--surface-2); }
+      .effects button[aria-pressed="true"] {
+        color: #1a1405;
+        background: var(--accent);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+
+      .lesson {
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 14px 18px;
+        margin-bottom: 20px;
+      }
+
+      .lesson h2 { margin: 0 0 6px; font-size: 1.08rem; }
+      .lesson p, .lesson ul { margin: 0 0 8px; color: #c9d4df; max-width: 920px; }
+      .lesson ul { padding-left: 20px; }
+      .lesson li { margin: 2px 0; }
+      .lesson b { color: var(--text); }
+      .lesson .watch {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .lesson .watch::before { content: "Watch — "; color: var(--accent); font-weight: 600; }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .actions button, .btn {
+        padding: 6px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface-2);
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .actions button:hover, .btn:hover { border-color: var(--accent); }
+
+      /* ---------- Layout ---------- */
+      .layout {
+        display: grid;
+        grid-template-columns: 290px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 4px 16px 14px;
+      }
+
+      .panel h3 {
+        margin: 14px 0 8px;
+        color: var(--accent);
+        font: 600 0.74rem ui-monospace, Consolas, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .field { margin-bottom: 10px; }
+      .field label, .field .lbl {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.86rem;
+        color: var(--muted);
+        margin-bottom: 3px;
+      }
+      .field output { color: var(--text); font-variant-numeric: tabular-nums; }
+      .field input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+      .field select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        background: var(--surface-2);
+      }
+
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.86rem;
+        color: var(--muted);
+        margin: 6px 0;
+        cursor: pointer;
+      }
+      .check input { accent-color: var(--accent); }
+
+      .pad-wrap { display: flex; gap: 12px; align-items: center; }
+      .pad {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        flex: 0 0 auto;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background:
+          linear-gradient(var(--line), var(--line)) center / 1px 100% no-repeat,
+          linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat,
+          var(--surface-2);
+        touch-action: none;
+        cursor: grab;
+      }
+      .pad .dot, .pad .tdot {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        margin: -8px 0 0 -8px;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .pad .dot { background: var(--accent); box-shadow: 0 0 0 3px rgba(239,195,106,0.25); }
+      .pad .tdot { border: 2px solid var(--flap); background: transparent; }
+      .pad-side { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+      .pad-side b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+      .views { display: grid; gap: 16px; min-width: 0; }
+
+      .card {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .card-head strong { color: var(--text); font-weight: 600; margin-right: auto; }
+      .card-head select {
+        padding: 3px 6px;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        background: var(--surface-2);
+        font-size: 0.82rem;
+      }
+      .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; }
+      .seg button {
+        padding: 3px 9px;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .seg button:hover { color: var(--text); background: var(--surface-2); }
+
+      .toggles { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; border-top: 1px solid var(--line); }
+      .toggles .check { margin: 0; font-size: 0.8rem; }
+
+      canvas { display: block; width: 100%; }
+      #c3d { height: clamp(340px, 52vw, 560px); cursor: grab; touch-action: none; }
+      #c3d:active { cursor: grabbing; }
+      .hint3d {
+        position: absolute;
+        right: 10px;
+        top: 46px;
+        font-size: 0.75rem;
+        color: var(--faint);
+        pointer-events: none;
+      }
+      .paused-badge {
+        position: absolute;
+        left: 12px;
+        top: 48px;
+        padding: 2px 8px;
+        border-radius: 5px;
+        background: rgba(239,195,106,0.15);
+        color: var(--accent);
+        font: 600 0.75rem ui-monospace, Consolas, monospace;
+        display: none;
+      }
+
+      .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; }
+      #cTop { aspect-ratio: 1 / 1; }
+      #cGraph { height: 300px; }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 12px;
+        padding: 8px 12px 10px;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+      .legend .bar { width: 140px; height: 9px; border-radius: 3px; }
+      .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+      .legend .ln { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: 3px; }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 8px 10px;
+      }
+      .stat span { display: block; color: var(--muted); font-size: 0.74rem; }
+      .stat b { display: block; font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .stat.warn b { color: var(--bad); }
+
+      .note { margin-top: 18px; color: var(--faint); font-size: 0.8rem; max-width: 900px; }
+
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        .row2 { grid-template-columns: minmax(0, 1fr); }
+        .panel { order: 2; }
+      }
+
+      @media (max-width: 560px) {
+        .page { padding: 20px 16px 48px; }
+        .hint3d { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">082 · PRINCIPLES OF FLIGHT</p>
+      <h1>Rotor dynamics simulator</h1>
+      <p class="lead">
+        A live main rotor. Pick an effect to load a ready-made scenario, or fly it yourself with the collective,
+        cyclic and airspeed. Each blade is computed by blade-element theory every frame, so flapping, lead-lag and
+        phase lag come out of the physics rather than being drawn by hand.
+      </p>
+
+      <nav class="effects" id="effects" aria-label="Rotor effects"></nav>
+      <section class="lesson" id="lesson" aria-live="polite"></section>
+
+      <div class="layout">
+        <aside class="panel" aria-label="Controls">
+          <h3>Flight controls</h3>
+          <div class="field">
+            <label for="col">Collective pitch (0.75 R) <output id="colOut"></output></label>
+            <input id="col" type="range" min="0" max="20" step="0.1" />
+          </div>
+          <label class="check"><input id="hold" type="checkbox" /> Hold thrust = weight × load factor</label>
+          <div class="field">
+            <label for="load">Load factor (thrust required) <output id="loadOut"></output></label>
+            <input id="load" type="range" min="0.6" max="2" step="0.05" />
+          </div>
+
+          <div class="field">
+            <span class="lbl">Cyclic stick <output id="cycOut"></output></span>
+            <div class="pad-wrap">
+              <div class="pad" id="pad" tabindex="0" role="slider" aria-label="Cyclic stick. Arrow keys move, Enter centres." aria-valuetext="Centred">
+                <div class="tdot" id="padT"></div>
+                <div class="dot" id="padDot"></div>
+              </div>
+              <div class="pad-side">
+                Drag. Up = forward.<br />Double-click centres.<br />
+                <span style="color:var(--accent)">●</span> pilot input<br />
+                <span style="color:var(--flap)">○</span> with auto-trim
+              </div>
+            </div>
+          </div>
+          <label class="check"><input id="trim" type="checkbox" /> Pilot corrects disc tilt (auto-trim)</label>
+
+          <div class="field">
+            <label for="spd">Airspeed <output id="spdOut"></output></label>
+            <input id="spd" type="range" min="0" max="180" step="1" />
+          </div>
+          <div class="field">
+            <label for="rpm">Rotor RPM <output id="rpmOut"></output></label>
+            <input id="rpm" type="range" min="80" max="110" step="1" />
+          </div>
+
+          <h3>Rotor</h3>
+          <div class="field">
+            <label for="type">Rotor head</label>
+            <select id="type">
+              <option value="articulated">Fully articulated</option>
+              <option value="teetering">Teetering / semi-rigid (2 blades)</option>
+              <option value="hingeless">Hingeless (rigid)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="nb">Number of blades</label>
+            <select id="nb">
+              <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="dir">Rotation seen from above</label>
+            <select id="dir">
+              <option value="1">Counter-clockwise (US, UK, most EU)</option>
+              <option value="-1">Clockwise (French, Russian)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ofs">Flapping hinge offset <output id="ofsOut"></output></label>
+            <input id="ofs" type="range" min="0" max="12" step="0.5" />
+          </div>
+          <div class="field">
+            <label for="adv">Control advance angle <output id="advOut"></output></label>
+            <input id="adv" type="range" min="0" max="120" step="1" />
+          </div>
+          <div class="field">
+            <label for="d3">Delta-3 (pitch-flap coupling) <output id="d3Out"></output></label>
+            <input id="d3" type="range" min="0" max="45" step="1" />
+          </div>
+          <div class="field">
+            <label for="lock">Lock number (blade aero / inertia) <output id="lockOut"></output></label>
+            <input id="lock" type="range" min="3" max="12" step="0.5" />
+          </div>
+          <label class="check"><input id="lockFlap" type="checkbox" /> Lock flapping hinges (no flapping)</label>
+
+          <h3>Display</h3>
+          <div class="field">
+            <label for="exag">Motion exaggeration <output id="exagOut"></output></label>
+            <input id="exag" type="range" min="1" max="5" step="0.5" />
+          </div>
+          <div class="field">
+            <label for="anim">Animation speed <output id="animOut"></output></label>
+            <input id="anim" type="range" min="0.05" max="1.5" step="0.05" />
+          </div>
+          <div class="actions">
+            <button type="button" id="pauseBtn">Pause</button>
+            <button type="button" id="resetBtn">Reset all</button>
+          </div>
+        </aside>
+
+        <main class="views">
+          <div class="card">
+            <div class="card-head">
+              <strong>Rotor — 3D</strong>
+              <div class="seg" role="group" aria-label="Camera">
+                <button type="button" data-cam="behind">Behind</button>
+                <button type="button" data-cam="side">Left side</button>
+                <button type="button" data-cam="front">Front</button>
+                <button type="button" data-cam="top">Top</button>
+              </div>
+            </div>
+            <canvas id="c3d" aria-label="3D view of the rotor head, blades and fuselage"></canvas>
+            <div class="hint3d">Drag to orbit · scroll to zoom</div>
+            <div class="paused-badge" id="pausedBadge">PAUSED</div>
+            <div class="toggles">
+              <label class="check"><input type="checkbox" id="tAoa" /> Colour blades by angle of attack</label>
+              <label class="check"><input type="checkbox" id="tTpp" /> Tip-path plane &amp; thrust</label>
+              <label class="check"><input type="checkbox" id="tFlow" /> Airflow &amp; induced flow</label>
+              <label class="check"><input type="checkbox" id="tFus" /> Fuselage</label>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="card">
+              <div class="card-head">
+                <strong>Disc from above</strong>
+                <select id="mapMode" aria-label="Disc map quantity">
+                  <option value="aoa">Angle of attack</option>
+                  <option value="speed">Relative airspeed</option>
+                  <option value="lift">Lift per unit span</option>
+                  <option value="inflow">Induced flow</option>
+                </select>
+              </div>
+              <canvas id="cTop" aria-label="Rotor disc seen from above, coloured by the selected quantity"></canvas>
+              <div class="legend" id="mapLegend"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><strong>Blade 1 over one revolution</strong><span>azimuth ψ from the tail</span></div>
+              <canvas id="cGraph" aria-label="Pitch, flapping and lead-lag of blade 1 versus azimuth"></canvas>
+              <div class="legend">
+                <span><span class="ln" style="background:var(--pitch)"></span>Pitch θ (feathering)</span>
+                <span><span class="ln" style="background:var(--flap)"></span>Flapping β</span>
+                <span><span class="ln" style="background:var(--lag)"></span>Lead (+) / lag (−) ζ</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats" id="stats"></div>
+        </main>
+      </div>
+
+      <p class="note">
+        Model: rigid blades with flap and lag degrees of freedom, linear twist, a lift curve that stalls at 15° (allowing for dynamic stall),
+        momentum inflow with a fore-aft gradient, and a fuselage attitude that follows a simple steady-flight law (the free-stream inflow assumes the disc sits at its steady-flight angle). Values are indicative
+        and chosen to make each effect visible; they are not data for a particular helicopter. Flapping and lead-lag
+        are drawn exaggerated by the slider (lead-lag twice as much).
+      </p>
+    </div>
+
+    <script>
+      "use strict";
+      // =====================================================================
+      // PHYSICS (no DOM) — non-dimensional blade-element rotor model.
+      // Time is azimuth ψ (rad). ψ = 0 with the blade over the tail, increasing
+      // in the direction of rotation, so ψ = 90° is always the advancing side.
+      // =====================================================================
+      const D2R = Math.PI / 180, R2D = 180 / Math.PI, TAU = Math.PI * 2;
+      const A_LIFT = 5.7;                 // lift-curve slope per rad
+      const ALPHA_STALL = 15 * D2R;       // effective (dynamic) stall angle
+      const CL_MAX = A_LIFT * ALPHA_STALL;
+      const TWIST = -8 * D2R;             // linear twist root → tip
+      const CHORD = 0.055;                // c / R
+      const TIP_SPEED = 210;              // m/s at 100 % RPM
+      const ROOT = 0.15, TIP = 0.97, NST = 12;
+      const CYC_MAX = 12 * D2R;           // cyclic pitch per full stick
+      const CT_SIGMA_W = 0.085;           // blade loading at 1 g, 100 % RPM
+      const NB = 72;                      // azimuth bins for history / map
+      const KT = 0.514444;
+
+      const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+      function clOf(a) {
+        const aa = Math.abs(a);
+        if (aa <= ALPHA_STALL) return A_LIFT * a;
+        const k = Math.max(0.7, 1 - (aa - ALPHA_STALL) / (30 * D2R));
+        return Math.sign(a) * CL_MAX * k;
+      }
+
+      function makeConfig(P) {
+        let N = P.N, e, nuB2, nuZ2, cz, lag = true, precone = 0, teeter = false, hingeless = false;
+        if (P.type === "teetering") {
+          N = 2; e = 0; nuB2 = 1; nuZ2 = 0; cz = 0; lag = false; precone = 2.5 * D2R; teeter = true;
+        } else if (P.type === "hingeless") {
+          e = 0.12; nuB2 = 1.12 * 1.12; nuZ2 = 0.65 * 0.65; cz = 0.2; precone = 2.5 * D2R; hingeless = true;
+        } else {
+          e = P.e; nuB2 = 1 + 1.5 * e / (1 - e); nuZ2 = Math.max(0.03, 1.5 * e / (1 - e)); cz = 0.35;
+        }
+        const r0 = Math.max(ROOT, e + 0.03), dr = (TIP - r0) / NST, rs = [];
+        let cb = 0;
+        for (let i = 0; i < NST; i++) {
+          const r = r0 + (i + 0.5) * dr;
+          rs.push(r);
+          cb += (r - e) * (r - e) * r * dr;
+        }
+        const damp = (P.gamma / 2) * cb;
+        return {
+          N, e, nuB2, nuZ2, cz, lag, precone, teeter, hingeless, rs, dr, r0,
+          kA: P.gamma / (2 * A_LIFT),
+          sigma: N * CHORD / Math.PI,
+          phaseLag: Math.atan2(damp, nuB2 - 1),
+        };
+      }
+
+      function makeSim() {
+        return {
+          psi: 0, bl: [], tb: 0, tbd: 0,
+          theta0: 11 * D2R, lam: 0.057, kx: 0, CT: 0.0065, mu: 0, V: 0, alphaS: 0, alphaIn: 0,
+          Ft: 0, Rt: 0, Fs: 0, Rs: 0,
+          b0: 0, b1c: 0, b1s: 0, th1c: 0, th1s: 0,
+          d: { b0: 0, b1c: 0, b1s: 0, th1c: 0, th1s: 0 },
+          bins: { th: new Float64Array(NB), b: new Float64Array(NB), bd: new Float64Array(NB), z: new Float64Array(NB) },
+          lastBin: -1, N: 0, type: "",
+        };
+      }
+
+      function resetBlades(S, cfg) {
+        S.bl = [];
+        for (let i = 0; i < cfg.N; i++) S.bl.push({ b: cfg.precone + 0.05, bd: 0, z: 0, zd: 0 });
+        S.tb = 0; S.tbd = 0; S.N = cfg.N; S.type = cfg.teeter ? "t" : "b";
+      }
+
+      // Per-frame derived values from the parameters.
+      function prepare(S, P, cfg) {
+        if (S.N !== cfg.N || S.type !== (cfg.teeter ? "t" : "b")) resetBlades(S, cfg);
+        const rpm = P.rpm / 100;
+        S.mu = (S.V * KT) / (TIP_SPEED * rpm);
+        S.rpm2 = rpm * rpm;
+        S.CTw = CT_SIGMA_W * cfg.sigma;
+        S.s = P.dir;
+        S.phAdv = P.phaseAdv * D2R;
+        S.tand3 = Math.tan(P.delta3 * D2R);
+        S.lockFlap = P.lockFlap && !cfg.teeter;
+        // Fuselage/shaft nose-down attitude needed to pull the helicopter
+        // through the air in steady flight (grows with speed squared).
+        S.alphaS = 0.75 * S.mu * S.mu;
+        // Free-stream inflow assumes the tip-path plane sits at its
+        // steady-flight angle to the air (shaft attitude + disc tilt).
+        S.alphaIn = S.alphaS + clamp(-S.d.b1c, -0.15, 0.3);
+        S.kx = Math.tan(0.5 * Math.atan2(S.mu, S.lam));
+      }
+
+      function thetaCyc(psi, S) {
+        const a = psi + S.phAdv;
+        return CYC_MAX * (S.Fs * Math.cos(a) - S.s * S.Rs * Math.sin(a));
+      }
+
+      // Local aerodynamics at one blade station. Results in AE (no allocation).
+      const AE = { alpha: 0, Fz: 0, Fx: 0, uT: 0, U2: 0, lam: 0 };
+      function aeroAt(r, sp, cp, beta, betad, thc, S, cfg) {
+        const uT = r + S.mu * sp;
+        const lam = S.lam * (1 + S.kx * r * cp) + S.mu * S.alphaIn;
+        const uP = lam + (r - cfg.e) * betad + S.mu * beta * cp;
+        const th = S.theta0 + TWIST * (r - 0.75) + thc;
+        const aT = Math.abs(uT);
+        const phi = Math.atan2(uP, aT);
+        const alpha = (uT >= 0 ? th : -th) - phi;
+        const U2 = uT * uT + uP * uP;
+        const cl = clOf(alpha);
+        const aa = Math.min(Math.abs(alpha), 0.6);
+        const cd = 0.011 + 0.3 * aa * aa + (Math.abs(alpha) > ALPHA_STALL ? 0.2 : 0);
+        const c = Math.cos(phi), s = Math.sin(phi);
+        AE.alpha = alpha; AE.uT = uT; AE.U2 = U2; AE.lam = lam;
+        AE.Fz = U2 * (cl * c - cd * s);
+        AE.Fx = U2 * (cd * c + cl * s) * (uT >= 0 ? 1 : -1);
+      }
+
+      const LD = { Mb: 0, Mz: 0, T: 0 };
+      function loads(psi, beta, betad, S, cfg) {
+        const sp = Math.sin(psi), cp = Math.cos(psi);
+        const thc = thetaCyc(psi, S) - S.tand3 * (beta - cfg.precone);
+        let Mb = 0, Mz = 0, T = 0;
+        for (let i = 0; i < NST; i++) {
+          const r = cfg.rs[i];
+          aeroAt(r, sp, cp, beta, betad, thc, S, cfg);
+          Mb += (r - cfg.e) * AE.Fz;
+          Mz -= (r - cfg.e) * AE.Fx;
+          T += AE.Fz;
+        }
+        LD.Mb = cfg.kA * Mb * cfg.dr;
+        LD.Mz = 0.35 * cfg.kA * Mz * cfg.dr;
+        LD.T = T * cfg.dr;
+      }
+
+      const K = [new Float64Array(4), new Float64Array(4), new Float64Array(4), new Float64Array(4)];
+      const Y = new Float64Array(4);
+
+      function derivBlade(psi, y, S, cfg, out) {
+        loads(psi, y[0], y[1], S, cfg);
+        const bdd = S.lockFlap ? 0 : LD.Mb - cfg.nuB2 * y[0] + (cfg.hingeless ? (cfg.nuB2 - 1) * cfg.precone : 0);
+        const zdd = cfg.lag ? LD.Mz - cfg.nuZ2 * y[2] - cfg.cz * y[3] + 2 * y[0] * y[1] : 0;
+        out[0] = y[1]; out[1] = bdd; out[2] = y[3]; out[3] = zdd;
+        return LD.T;
+      }
+
+      function derivTeeter(psi, y, S, cfg, out) {
+        loads(psi, cfg.precone + y[0], y[1], S, cfg);
+        const M1 = LD.Mb, T1 = LD.T;
+        loads(psi + Math.PI, cfg.precone - y[0], -y[1], S, cfg);
+        out[0] = y[1]; out[1] = (M1 - LD.Mb) / 2 - y[0]; out[2] = 0; out[3] = 0;
+        return T1 + LD.T;
+      }
+
+      function rk4(f, psi, y0, h, S, cfg) {
+        const T = f(psi, y0, S, cfg, K[0]);
+        for (let j = 0; j < 4; j++) Y[j] = y0[j] + 0.5 * h * K[0][j];
+        f(psi + 0.5 * h, Y, S, cfg, K[1]);
+        for (let j = 0; j < 4; j++) Y[j] = y0[j] + 0.5 * h * K[1][j];
+        f(psi + 0.5 * h, Y, S, cfg, K[2]);
+        for (let j = 0; j < 4; j++) Y[j] = y0[j] + h * K[2][j];
+        f(psi + h, Y, S, cfg, K[3]);
+        for (let j = 0; j < 4; j++) y0[j] += (h / 6) * (K[0][j] + 2 * K[1][j] + 2 * K[2][j] + K[3][j]);
+        return T;
+      }
+
+      const Y0 = new Float64Array(4);
+      function stepSim(S, P, cfg, h) {
+        S.Fs = clamp(P.F + S.Ft, -1, 1);
+        S.Rs = clamp(P.R + S.Rt, -1, 1);
+        let Tsum = 0;
+        if (cfg.teeter) {
+          Y0[0] = S.tb; Y0[1] = S.tbd; Y0[2] = 0; Y0[3] = 0;
+          Tsum = rk4(derivTeeter, S.psi, Y0, h, S, cfg);
+          S.tb = clamp(Y0[0], -0.5, 0.5); S.tbd = Y0[1];
+        } else {
+          for (let i = 0; i < cfg.N; i++) {
+            const bl = S.bl[i];
+            if (S.lockFlap) { bl.b = cfg.precone; bl.bd = 0; }
+            Y0[0] = bl.b; Y0[1] = bl.bd; Y0[2] = bl.z; Y0[3] = bl.zd;
+            Tsum += rk4(derivBlade, S.psi + (TAU * i) / cfg.N, Y0, h, S, cfg);
+            bl.b = clamp(Y0[0], -0.6, 0.6); bl.bd = Y0[1]; bl.z = clamp(Y0[2], -0.5, 0.5); bl.zd = Y0[3];
+          }
+        }
+        S.psi += h;
+        if (S.psi > TAU * 1000) S.psi -= TAU * 1000;
+
+        // Thrust, momentum inflow and its fore-aft gradient
+        const CTi = (cfg.sigma / (2 * cfg.N)) * Tsum;
+        S.CT += (CTi - S.CT) * Math.min(1, h / 1.0);
+        const lt = Math.max(S.CT, 0) / (2 * Math.sqrt(S.mu * S.mu + (S.lam + S.mu * S.alphaIn) ** 2));
+        S.lam += (Math.max(0.003, lt) - S.lam) * h * 0.3;
+        S.kx = Math.tan(0.5 * Math.atan2(S.mu, S.lam));
+
+        harmonics(S, cfg);
+
+        if (P.holdThrust) {
+          const TR = (S.CT * S.rpm2) / S.CTw;
+          S.theta0 = clamp(S.theta0 + 0.03 * (P.load - TR) * h, -2 * D2R, 19 * D2R);
+        }
+        if (P.trim) {
+          const a1 = -S.b1c, tiltR = S.s * -S.b1s;
+          S.Ft = clamp(S.Ft + 0.25 * h * (a1 / CYC_MAX), -1 - P.F, 1 - P.F);
+          S.Rt = clamp(S.Rt - 0.25 * h * (tiltR / CYC_MAX), -1 - P.R, 1 - P.R);
+        }
+
+        // Display smoothing
+        const k = Math.min(1, h / 1.2), d = S.d;
+        d.b0 += (S.b0 - d.b0) * k; d.b1c += (S.b1c - d.b1c) * k; d.b1s += (S.b1s - d.b1s) * k;
+        d.th1c += (S.th1c - d.th1c) * k; d.th1s += (S.th1s - d.th1s) * k;
+        S.alphaIn = S.alphaS + clamp(-d.b1c, -0.15, 0.3);
+
+        // Azimuth history of blade 1
+        const pm = ((S.psi % TAU) + TAU) % TAU;
+        const idx = Math.floor((pm / TAU) * NB) % NB;
+        if (idx !== S.lastBin) {
+          const b = bladeBeta(S, cfg, 0), bd = bladeBetaD(S, cfg, 0), z = cfg.teeter ? 0 : S.bl[0].z;
+          const th = S.theta0 + thetaCyc(pm, S) - S.tand3 * (b - cfg.precone);
+          let j = S.lastBin < 0 ? idx : (S.lastBin + 1) % NB, guard = 0;
+          while (guard++ < NB) {
+            S.bins.th[j] = th; S.bins.b[j] = b; S.bins.bd[j] = bd; S.bins.z[j] = z;
+            if (j === idx) break;
+            j = (j + 1) % NB;
+          }
+          S.lastBin = idx;
+        }
+      }
+
+      function bladeBeta(S, cfg, i) {
+        if (cfg.teeter) return cfg.precone + (i === 0 ? S.tb : -S.tb);
+        return S.bl[i].b;
+      }
+      function bladeBetaD(S, cfg, i) {
+        if (cfg.teeter) return i === 0 ? S.tbd : -S.tbd;
+        return S.bl[i].bd;
+      }
+
+      function harmonics(S, cfg) {
+        let b0 = 0, b1c = 0, b1s = 0;
+        if (cfg.N >= 3) {
+          for (let i = 0; i < cfg.N; i++) {
+            const p = S.psi + (TAU * i) / cfg.N, b = S.bl[i].b;
+            b0 += b; b1c += b * Math.cos(p); b1s += b * Math.sin(p);
+          }
+          b0 /= cfg.N; b1c *= 2 / cfg.N; b1s *= 2 / cfg.N;
+        } else {
+          const bA = bladeBeta(S, cfg, 0), bB = bladeBeta(S, cfg, 1);
+          const dA = bladeBetaD(S, cfg, 0), dB = bladeBetaD(S, cfg, 1);
+          b0 = (bA + bB) / 2;
+          const x = bA - b0, xd = dA - (dA + dB) / 2, c = Math.cos(S.psi), s = Math.sin(S.psi);
+          b1c = x * c - xd * s; b1s = x * s + xd * c;
+        }
+        S.b0 = b0; S.b1c = b1c; S.b1s = b1s;
+        const cA = Math.cos(S.phAdv), sA = Math.sin(S.phAdv);
+        S.th1c = CYC_MAX * (S.Fs * cA - S.s * S.Rs * sA) - S.tand3 * b1c;
+        S.th1s = CYC_MAX * (-S.Fs * sA - S.s * S.Rs * cA) - S.tand3 * b1s;
+      }
+
+      function settle(S, P, cfg, revs) {
+        // Approach high speeds gradually so the trim finds the normal
+        // (unstalled) equilibrium, as a pilot accelerating would.
+        if (P.V > S.V + 30) {
+          const v0 = S.V, n = Math.ceil((P.V - v0) / 15);
+          for (let k = 1; k <= n; k++) {
+            S.V = v0 + ((P.V - v0) * k) / n;
+            prepare(S, P, cfg);
+            for (let i = 0; i < 80; i++) stepSim(S, P, cfg, 0.02);
+          }
+        }
+        S.V = P.V;
+        prepare(S, P, cfg);
+        const n = Math.round((revs * TAU) / 0.02);
+        for (let i = 0; i < n; i++) stepSim(S, P, cfg, 0.02);
+      }
+
+      // Disc map: aerodynamics at (r, ψ) cells using blade-1 history.
+      const MAP_NR = 16, MAP_NA = NB, LOW_Q = 0.25;
+      function computeMap(S, cfg, M) {
+        let maxRet = -1, stall = 0, cells = 0, liftAdv = 0, liftRet = 0, maxSpeed = 0;
+        for (let ia = 0; ia < MAP_NA; ia++) {
+          const psi = ((ia + 0.5) / MAP_NA) * TAU, sp = Math.sin(psi), cp = Math.cos(psi);
+          const b = S.lockFlap ? cfg.precone : S.bins.b[ia], bd = S.lockFlap ? 0 : S.bins.bd[ia];
+          const thc = thetaCyc(psi, S) - S.tand3 * (b - cfg.precone);
+          for (let ir = 0; ir < MAP_NR; ir++) {
+            const r = ROOT + ((ir + 0.5) / MAP_NR) * (TIP - ROOT);
+            aeroAt(r, sp, cp, b, bd, thc, S, cfg);
+            const k = ia * MAP_NR + ir;
+            M.alpha[k] = AE.alpha; M.uT[k] = AE.uT; M.Fz[k] = AE.Fz; M.lam[k] = AE.lam;
+            // Cells with almost no airflow (edge of the reverse-flow circle) carry
+            // no load, so they are not counted as stalled.
+            M.stall[k] = AE.uT > LOW_Q && Math.abs(AE.alpha) > ALPHA_STALL ? 1 : 0;
+            if (AE.uT > 0) { cells++; stall += M.stall[k]; }
+            if (psi > Math.PI && AE.uT > LOW_Q) maxRet = Math.max(maxRet, AE.alpha);
+            if (psi < Math.PI) liftAdv += AE.Fz * r; else liftRet += AE.Fz * r;
+            maxSpeed = Math.max(maxSpeed, AE.uT);
+          }
+        }
+        M.maxRet = maxRet; M.stallFrac = stall / Math.max(1, cells);
+        M.liftAdv = liftAdv; M.liftRet = liftRet; M.maxSpeed = maxSpeed;
+      }
+      function makeMap() {
+        const n = MAP_NR * MAP_NA;
+        return { alpha: new Float64Array(n), uT: new Float64Array(n), Fz: new Float64Array(n), lam: new Float64Array(n), stall: new Uint8Array(n) };
+      }
+      // PHYSICS-END
+
+      // =====================================================================
+      // APP STATE
+      // =====================================================================
+      const DEFAULTS = {
+        holdThrust: true, load: 1.0, V: 0, rpm: 100, F: 0, R: 0, trim: false,
+        type: "articulated", N: 4, dir: 1, e: 0.04, delta3: 0, gamma: 8, phaseAdv: 90, lockFlap: false,
+        exag: 2, speed: 0.35, colorAoA: true, showTPP: true, showFlow: true, showFus: true, mapMode: "aoa",
+      };
+      const P = Object.assign({}, DEFAULTS);
+      let paused = false;
+      const S = makeSim();
+      let cfg = makeConfig(P);
+      const MAP = makeMap();
+      const tweens = [];
+
+      const $ = (id) => document.getElementById(id);
+
+      // ---------- Colour helpers ----------
+      const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+      function ramp(stops) {
+        const s = stops.map(([v, c]) => [v, hex(c)]);
+        return (v) => {
+          if (v <= s[0][0]) return s[0][1];
+          for (let i = 1; i < s.length; i++) {
+            if (v <= s[i][0]) {
+              const t = (v - s[i - 1][0]) / (s[i][0] - s[i - 1][0]), a = s[i - 1][1], b = s[i][1];
+              return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+            }
+          }
+          return s[s.length - 1][1];
+        };
+      }
+      const rgb = (c, k = 1, a = 1) => `rgba(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)},${a})`;
+      const AOA_STOPS = [[-4, "#24467a"], [0, "#2f78b8"], [4, "#3fb0a6"], [8, "#9fd06a"], [11, "#efc36a"], [14.99, "#f39a4c"]];
+      const aoaRamp = ramp(AOA_STOPS);
+      const C_STALL = hex("#e2475f"), C_REV = hex("#9a6fe0");
+      const SPEED_STOPS = [[0, "#13263b"], [0.4, "#2a5b8a"], [0.8, "#5fa6dd"], [1.2, "#c7e6ff"], [1.45, "#ffffff"]];
+      const speedRamp = ramp(SPEED_STOPS);
+      const LIFT_STOPS = [[-0.2, "#7a4cc0"], [0, "#18293d"], [0.25, "#3c6f74"], [0.55, "#8fbf6a"], [0.9, "#efc36a"], [1.3, "#ffe7a8"]];
+      const liftRamp = ramp(LIFT_STOPS);
+      const INFLOW_STOPS = [[0, "#13263b"], [0.04, "#21507a"], [0.08, "#3f8fc8"], [0.12, "#8fd0f0"], [0.16, "#e3f6ff"]];
+      const inflowRamp = ramp(INFLOW_STOPS);
+      const grad = (stops, lo, hi) =>
+        `linear-gradient(90deg, ${stops.map(([v, c]) => `${c} ${(((v - lo) / (hi - lo)) * 100).toFixed(1)}%`).join(", ")})`;
+
+      function aoaColor(alpha, uT) {
+        if (uT < 0) return C_REV;
+        if (uT < LOW_Q) return aoaRamp(clamp(alpha * R2D, -4, 14.9));
+        if (Math.abs(alpha) > ALPHA_STALL) return C_STALL;
+        return aoaRamp(alpha * R2D);
+      }
+
+      // =====================================================================
+      // LESSONS
+      // =====================================================================
+      const CAMS = {
+        behind: { az: -32, el: 27, dist: 4.6 },
+        side: { az: -90, el: 6, dist: 4.4 },
+        front: { az: 160, el: 12, dist: 4.4 },
+        top: { az: 0, el: 89, dist: 4.4 },
+      };
+
+      function preset(over, cam) {
+        tweens.length = 0;
+        Object.assign(P, DEFAULTS, over || {});
+        S.Ft = 0; S.Rt = 0;
+        if (over && over.theta0 !== undefined) S.theta0 = over.theta0 * D2R;
+        if (cam) setCam(cam);
+        cfg = makeConfig(P);
+        settle(S, P, cfg, 4);
+        syncUI();
+      }
+
+      function set(over, revs = 0) {
+        Object.assign(P, over);
+        if (over.theta0 !== undefined) { S.theta0 = over.theta0 * D2R; P.holdThrust = false; }
+        if (over.trim === false) { S.Ft = 0; S.Rt = 0; }
+        cfg = makeConfig(P);
+        if (revs) settle(S, P, cfg, revs);
+        syncUI();
+      }
+
+      const LESSONS = [
+        {
+          id: "free", label: "Free flight",
+          title: "Free flight",
+          html: `<p>Every control is live. Fly the rotor with the <b>collective</b>, the <b>cyclic pad</b> and <b>airspeed</b>, or change the rotor head on the left.
+            Pick any effect above for a guided scenario.</p>
+            <p class="watch">blade 1 has a gold tip. The azimuth ψ is measured from the tail in the direction of rotation, so ψ 90° is always the advancing side.</p>`,
+          setup: () => preset({}, "behind"),
+          actions: [],
+        },
+        {
+          id: "feather", label: "Feathering",
+          title: "Feathering — collective and cyclic pitch",
+          html: `<p><b>Feathering</b> is the rotation of a blade about its <b>feathering (pitch-change) axis</b>, changing the blade pitch angle. It is the only movement the pilot controls directly.</p>
+            <ul><li><b>Collective</b> raises or lowers the whole swashplate: every blade changes pitch by the same amount, at all azimuths.</li>
+            <li><b>Cyclic</b> tilts the swashplate: each blade's pitch varies <b>sinusoidally once per revolution</b> — maximum on one side of the disc, minimum on the opposite side.</li></ul>
+            <p class="watch">the gold pitch line on the azimuth graph. With collective only it is flat; with cyclic it becomes a sine wave. In 3D, watch the swashplate tilt and the blade shading change as each blade twists.</p>`,
+          setup: () => preset({ holdThrust: false, theta0: 10, exag: 2.5 }, "behind"),
+          actions: [
+            { label: "Collective only", run: () => set({ F: 0, R: 0 }) },
+            { label: "Forward cyclic", run: () => set({ F: 0.7, R: 0 }) },
+            { label: "Right cyclic", run: () => set({ F: 0, R: 0.7 }) },
+            { label: "Raise collective to 15°", run: () => set({ theta0: 15 }) },
+            { label: "Lower collective to 5°", run: () => set({ theta0: 5 }) },
+          ],
+        },
+        {
+          id: "coning", label: "Coning",
+          title: "Coning",
+          html: `<p><b>Coning</b> is the upward angle of the blades. It is the balance between <b>lift</b> (upwards, acting around ¾ span) and <b>centrifugal force</b> (outwards, from the rotor RPM); the blade lies along their resultant.</p>
+            <ul><li>More thrust (higher weight, higher load factor in a turn or pull-up) → <b>more coning</b>.</li>
+            <li>Lower rotor RPM → less centrifugal force, and more pitch is needed to keep the same thrust → <b>more coning</b>.</li>
+            <li>Excessive coning reduces the effective disc area and overstresses the blade roots — one reason why low rotor RPM is dangerous.</li></ul>
+            <p class="watch">the Coning readout and the side view. "Hold thrust" is on, so the collective rises by itself to keep thrust equal to weight × load factor.</p>`,
+          setup: () => preset({ exag: 2.5 }, "side"),
+          actions: [
+            { label: "Normal: 100 %, 1 g", run: () => set({ rpm: 100, load: 1 }) },
+            { label: "Low rotor RPM 85 %", run: () => set({ rpm: 85, load: 1 }) },
+            { label: "Pull 1.8 g", run: () => set({ rpm: 100, load: 1.8 }) },
+            { label: "Low RPM + 1.8 g", run: () => set({ rpm: 85, load: 1.8 }) },
+          ],
+        },
+        {
+          id: "dissym", label: "Dissymmetry & flapping",
+          title: "Dissymmetry of lift and flapping to equality",
+          html: `<p>In forward flight the <b>advancing blade</b> meets the air at ΩR + V and the <b>retreating blade</b> at ΩR − V. With the same pitch the advancing side would make far more lift: this is <b>dissymmetry of lift</b>, and the helicopter would roll toward the retreating side.</p>
+            <p>The <b>flapping hinge</b> cures it. The advancing blade flaps <b>up</b>; its upward velocity makes the relative airflow come from above, reducing its <b>angle of attack</b>. The retreating blade flaps <b>down</b>, increasing its angle of attack. Lift on both halves becomes nearly equal — <b>flapping to equality</b>. The upward flapping velocity is greatest at ψ 90°, and the blade is highest 90° later, over the nose.</p>
+            <p class="watch">set the map to <b>Lift</b>, then lock the hinges: the advancing half takes most of the lift (see "Lift advancing : retreating"). Unlock and compare the angle-of-attack map: lower on the advancing side, higher on the retreating side.</p>`,
+          setup: () => preset({ V: 100, mapMode: "lift" }, "behind"),
+          actions: [
+            { label: "Lock flapping hinges", run: () => set({ lockFlap: true }) },
+            { label: "Unlock", run: () => set({ lockFlap: false }) },
+            { label: "Map: lift", run: () => set({ mapMode: "lift" }) },
+            { label: "Map: angle of attack", run: () => set({ mapMode: "aoa" }) },
+            { label: "Map: airspeed", run: () => set({ mapMode: "speed" }) },
+          ],
+        },
+        {
+          id: "phase", label: "Phase lag",
+          title: "Phase lag (gyroscopic precession) and the advance angle",
+          html: `<p>The rotor answers a cyclic pitch change with its <b>maximum flapping displacement about 90° later</b> in the direction of rotation: the <b>phase lag</b>, often explained as gyroscopic precession. With the flapping hinges on the shaft it is exactly 90°. With <b>hinge offset</b> or a hingeless rotor it is a little less, because the hub adds stiffness.</p>
+            <p>So the controls apply the pitch change <b>ahead</b> of where the disc has to tilt: the <b>advance angle</b>, built into the pitch-horn geometry, the swashplate phasing or a mixing unit. Push the cyclic forward and the blades reach minimum pitch on the advancing side (ψ 90°), so they are lowest over the nose (ψ 180°) and the disc tilts forward.</p>
+            <p class="watch">on the disc map, the gold triangle is maximum pitch and the green triangle is maximum flap (the high point); the arc between them is the phase lag. Set the advance angle to 0°: the disc then tilts 90° away from the stick.</p>`,
+          setup: () => preset({ F: 0.6, exag: 2.5 }, "behind"),
+          actions: [
+            { label: "Forward cyclic", run: () => set({ F: 0.6, R: 0 }) },
+            { label: "Right cyclic", run: () => set({ F: 0, R: 0.6 }) },
+            { label: "Advance angle 0°", run: () => set({ phaseAdv: 0 }) },
+            { label: "Advance angle 90°", run: () => set({ phaseAdv: 90 }) },
+            { label: "Hinge offset 0 %", run: () => set({ type: "articulated", e: 0 }) },
+            { label: "Hinge offset 10 %", run: () => set({ type: "articulated", e: 0.1 }) },
+            { label: "Hingeless rotor", run: () => set({ type: "hingeless" }) },
+          ],
+        },
+        {
+          id: "leadlag", label: "Lead-lag",
+          title: "Lead-lag (dragging): Coriolis and Hooke's joint effects",
+          html: `<p>The blades also move <b>in the plane of rotation</b> about the <b>drag (lag) hinge</b>: forwards is <b>lead</b>, backwards is <b>lag</b>.</p>
+            <ul><li><b>Coriolis effect</b> (conservation of angular momentum): when a blade flaps up, its centre of mass moves closer to the shaft, so it speeds up and <b>leads</b>. When it flaps down it slows and <b>lags</b> — like a skater pulling their arms in.</li>
+            <li><b>Hooke's joint effect</b>: when the disc is tilted relative to the shaft, seen along the shaft each blade's centre of mass is nearer or farther once per revolution, giving the same lead and lag. It is the same physics seen from the shaft.</li>
+            <li><b>Drag</b> keeps the blades lagged back under power.</li></ul>
+            <p>Lag hinges relieve the in-plane bending stresses. <b>Lag dampers</b> control the movement and help prevent <b>ground resonance</b>. A <b>teetering</b> (semi-rigid) rotor has no lag hinge: its <b>underslung</b> hub keeps the centre of mass of the blades almost on the shaft axis.</p>
+            <p class="watch">the purple lag line on the graph, and the uneven spacing between the blades in the top view when the disc is tilted.</p>`,
+          setup: () => preset({ F: 0.9, exag: 4, load: 1.3 }, "top"),
+          actions: [
+            { label: "Strong cyclic tilt", run: () => set({ F: 0.9, R: 0 }) },
+            { label: "Hover, no cyclic", run: () => set({ F: 0, R: 0 }) },
+            { label: "Articulated rotor", run: () => set({ type: "articulated", N: 4 }) },
+            { label: "Teetering rotor", run: () => set({ type: "teetering" }) },
+          ],
+        },
+        {
+          id: "flapback", label: "Flapback (blowback)",
+          title: "Flapback (blowback)",
+          html: `<p>If the cyclic is held still and airspeed increases, or a gust hits the disc, dissymmetry of lift makes the advancing blade flap up. Because of the phase lag its highest point is over the nose, so the <b>disc tilts back</b>, away from the relative airflow.</p>
+            <p>The thrust tilts back too and slows the helicopter down. This gives the rotor <b>positive speed stability</b>, and it is why the pilot has to keep moving the cyclic <b>forward</b> as speed increases. A small sideways tilt also appears, from coning and transverse flow.</p>
+            <p class="watch">the "Disc tilt" readout and the thrust arrow during the sweep. Then turn on "Pilot corrects" and watch the stick move forward by itself.</p>`,
+          setup: () => preset({ exag: 2.5 }, "side"),
+          actions: [
+            { label: "Sweep 0 → 120 kt", run: () => { set({ V: 0, trim: false }, 2); tween("V", 120, 9); } },
+            { label: "Gust +25 kt", run: () => tween("V", P.V + 25, 0.5, () => tween("V", P.V - 25, 1.5)) },
+            { label: "Pilot corrects (auto-trim)", run: () => set({ trim: true }) },
+            { label: "Hands off (fixed cyclic)", run: () => set({ trim: false }) },
+            { label: "Back to hover", run: () => tween("V", 0, 3) },
+          ],
+        },
+        {
+          id: "transverse", label: "Transverse flow",
+          title: "Transverse flow effect (inflow roll)",
+          html: `<p>As the helicopter starts to move (about 10–20 kt), air passing through the <b>rear</b> of the disc has been accelerated downwards for longer than the air at the <b>front</b>, so the induced downwash at the rear is larger. The rear blades meet the air at a <b>lower angle of attack</b> and make less lift; the front blades make more.</p>
+            <p>Because of the 90° phase lag, the result shows on the side: the disc rolls toward the <b>advancing side</b> (to the right for a counter-clockwise rotor seen from above). It also causes vibration during transition, and fades as speed increases.</p>
+            <p class="watch">the inflow arrows in 3D (longer at the rear), the map in <b>Induced flow</b> mode, and the sideways part of "Disc tilt".</p>`,
+          setup: () => preset({ V: 15, mapMode: "inflow", exag: 3 }, "front"),
+          actions: [
+            { label: "Sweep 0 → 35 kt", run: () => { set({ V: 0 }, 2); tween("V", 35, 8); } },
+            { label: "15 kt", run: () => tween("V", 15, 2) },
+            { label: "Hover", run: () => tween("V", 0, 2) },
+            { label: "Clockwise rotor", run: () => set({ dir: -1 }, 2) },
+            { label: "Counter-clockwise rotor", run: () => set({ dir: 1 }, 2) },
+          ],
+        },
+        {
+          id: "etl", label: "Translational lift",
+          title: "Translational lift (ETL)",
+          html: `<p>As airspeed increases from the hover, the rotor moves into undisturbed air and leaves its own downwash behind. The <b>induced flow</b> through the disc <b>decreases</b>, so at the same pitch the angle of attack increases and the rotor makes more thrust.</p>
+            <p><b>Effective translational lift</b> is felt at roughly 16–24 kt, often with a burst of vibration as the rotor outruns its own tip vortices. To keep the same thrust, the collective (and the power) needed goes down.</p>
+            <p class="watch">the "Induced velocity" and "Collective" readouts during the sweep. Use "Fixed collective" to see the thrust rise instead.</p>`,
+          setup: () => preset({ mapMode: "inflow" }, "side"),
+          actions: [
+            { label: "Sweep 0 → 60 kt (hold thrust)", run: () => { set({ V: 0, holdThrust: true }, 3); tween("V", 60, 8); } },
+            { label: "Fixed collective: sweep", run: () => { set({ V: 0, holdThrust: true }, 3); P.holdThrust = false; syncUI(); tween("V", 60, 8); } },
+            { label: "Hover", run: () => { set({ holdThrust: true }); tween("V", 0, 3); } },
+          ],
+        },
+        {
+          id: "rbs", label: "Retreating blade stall",
+          title: "Retreating blade stall and reverse flow",
+          html: `<p>At high speed the airflow over the retreating blade is low (ΩR − V). Near its root it even comes from the trailing edge: the <b>reverse flow region</b>, a circle on the retreating side whose diameter grows with speed. To make its share of lift, the retreating blade needs a large angle of attack (cyclic feathering plus flapping down), and its <b>tip reaches the stalling angle first</b>.</p>
+            <p>Symptoms: abnormal vibration, then <b>nose pitch-up</b> and a <b>roll toward the retreating side</b>. Phase lag moves the lift loss at ψ 270° to the rear of the disc. It is made worse by high airspeed, high weight, high density altitude, low rotor RPM, high load factor and turbulence. Recovery: lower the collective, reduce airspeed, restore rotor RPM and reduce the load factor.</p>
+            <p class="watch">at 140 kt and 1.1 g the retreating tip is just below the stall (see "Max AoA, retreating side"). Pull g, lower the RPM or add speed and red stalled cells appear at the retreating tip, next to the purple reverse-flow circle. The pilot trims the disc automatically here, as in real flight; once the cyclic runs out the disc tilts back (pitch-up).</p>`,
+          setup: () => preset({ V: 140, trim: true, load: 1.1, mapMode: "aoa" }, "behind"),
+          actions: [
+            { label: "Pull 1.2 g", run: () => set({ load: 1.2 }) },
+            { label: "Low rotor RPM 95 %", run: () => set({ rpm: 95 }) },
+            { label: "Speed 160 kt", run: () => tween("V", 160, 4) },
+            { label: "Recover", run: () => { set({ load: 1, rpm: 100 }); tween("V", 110, 4); } },
+          ],
+        },
+      ];
+
+      let lesson = LESSONS[0];
+
+      function renderEffects() {
+        $("effects").innerHTML = LESSONS.map((l) =>
+          `<button type="button" data-id="${l.id}" aria-pressed="${l === lesson}">${l.label}</button>`).join("");
+      }
+
+      function selectLesson(id) {
+        lesson = LESSONS.find((l) => l.id === id) || LESSONS[0];
+        renderEffects();
+        $("lesson").innerHTML = `<h2>${lesson.title}</h2>${lesson.html}` +
+          (lesson.actions.length ? `<div class="actions">${lesson.actions.map((a, i) => `<button type="button" data-act="${i}">${a.label}</button>`).join("")}</div>` : "");
+        lesson.setup();
+      }
+
+      $("effects").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-id]");
+        if (b) selectLesson(b.dataset.id);
+      });
+      $("lesson").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-act]");
+        if (b) lesson.actions[+b.dataset.act].run();
+      });
+
+      function tween(key, to, dur, then) {
+        for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].key === key) tweens.splice(i, 1);
+        tweens.push({ key, from: P[key], to, dur, t: 0, then });
+      }
+
+      function updateTweens(dt) {
+        for (let i = tweens.length - 1; i >= 0; i--) {
+          const tw = tweens[i];
+          tw.t += dt;
+          const u = Math.min(1, tw.t / tw.dur), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+          P[tw.key] = tw.from + (tw.to - tw.from) * e;
+          if (u >= 1) { tweens.splice(i, 1); if (tw.then) tw.then(); }
+        }
+      }
+
+      // =====================================================================
+      // CONTROLS
+      // =====================================================================
+      const fmt = (v, d = 1) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d);
+
+      function bindRange(id, get, put, show) {
+        const el = $(id);
+        el.addEventListener("input", () => { put(parseFloat(el.value)); cfg = makeConfig(P); syncUI(); });
+        return { el, get, show, out: $(id + "Out") };
+      }
+
+      const ranges = [
+        bindRange("col", () => S.theta0 * R2D, (v) => { S.theta0 = v * D2R; P.holdThrust = false; }, (v) => `${fmt(v)}°`),
+        bindRange("load", () => P.load, (v) => (P.load = v), (v) => `${v.toFixed(2)} g`),
+        bindRange("spd", () => P.V, (v) => { P.V = v; tweens.length = 0; }, (v) => `${Math.round(v)} kt`),
+        bindRange("rpm", () => P.rpm, (v) => (P.rpm = v), (v) => `${Math.round(v)} %`),
+        bindRange("ofs", () => P.e * 100, (v) => { P.e = v / 100; if (P.type !== "articulated") P.type = "articulated"; }, (v) => `${fmt(v)} % R`),
+        bindRange("adv", () => P.phaseAdv, (v) => (P.phaseAdv = v), (v) => `${Math.round(v)}°`),
+        bindRange("d3", () => P.delta3, (v) => (P.delta3 = v), (v) => `${Math.round(v)}°`),
+        bindRange("lock", () => P.gamma, (v) => (P.gamma = v), (v) => fmt(v)),
+        bindRange("exag", () => P.exag, (v) => (P.exag = v), (v) => `×${fmt(v)}`),
+        bindRange("anim", () => P.speed, (v) => (P.speed = v), (v) => `${v.toFixed(2)} rev/s`),
+      ];
+
+      const checks = [
+        ["hold", "holdThrust"], ["trim", "trim"], ["lockFlap", "lockFlap"],
+        ["tAoa", "colorAoA"], ["tTpp", "showTPP"], ["tFlow", "showFlow"], ["tFus", "showFus"],
+      ];
+      checks.forEach(([id, key]) => $(id).addEventListener("change", (e) => {
+        P[key] = e.target.checked;
+        if (key === "trim" && !P.trim) { S.Ft = 0; S.Rt = 0; }
+        syncUI();
+      }));
+
+      $("type").addEventListener("change", (e) => { P.type = e.target.value; cfg = makeConfig(P); syncUI(); });
+      $("nb").addEventListener("change", (e) => { P.N = +e.target.value; cfg = makeConfig(P); syncUI(); });
+      $("dir").addEventListener("change", (e) => { P.dir = +e.target.value; syncUI(); });
+      $("mapMode").addEventListener("change", (e) => { P.mapMode = e.target.value; syncUI(); });
+
+      function syncUI() {
+        ranges.forEach((r) => {
+          const v = r.get();
+          if (document.activeElement !== r.el) r.el.value = v;
+          if (r.out) r.out.textContent = r.show(v);
+        });
+        checks.forEach(([id, key]) => ($(id).checked = !!P[key]));
+        $("type").value = P.type;
+        $("nb").value = cfg.N;
+        $("nb").disabled = P.type === "teetering";
+        $("dir").value = String(P.dir);
+        $("mapMode").value = P.mapMode;
+        $("ofs").disabled = P.type !== "articulated";
+        $("lockFlap").disabled = P.type === "teetering";
+        $("pauseBtn").textContent = paused ? "Play" : "Pause";
+        $("pausedBadge").style.display = paused ? "block" : "none";
+        updatePad();
+        updateLegend();
+      }
+
+      // Cyclic pad
+      const pad = $("pad");
+      function updatePad() {
+        const place = (el, f, r) => { el.style.left = `${50 + r * 42}%`; el.style.top = `${50 - f * 42}%`; };
+        place($("padDot"), P.F, P.R);
+        place($("padT"), clamp(P.F + S.Ft, -1, 1), clamp(P.R + S.Rt, -1, 1));
+        $("padT").style.display = P.trim ? "block" : "none";
+        const f = Math.round(P.F * 100), r = Math.round(P.R * 100);
+        const txt = `${f === 0 ? "" : Math.abs(f) + " % " + (f > 0 ? "fwd" : "aft")}${f && r ? " · " : ""}${r === 0 ? "" : Math.abs(r) + " % " + (r > 0 ? "right" : "left")}` || "centred";
+        $("cycOut").textContent = txt;
+        pad.setAttribute("aria-valuetext", txt);
+      }
+      function padFromEvent(e) {
+        const r = pad.getBoundingClientRect();
+        let x = ((e.clientX - r.left) / r.width - 0.5) / 0.42, y = -((e.clientY - r.top) / r.height - 0.5) / 0.42;
+        const m = Math.hypot(x, y);
+        if (m > 1) { x /= m; y /= m; }
+        P.F = Math.abs(y) < 0.04 ? 0 : y;
+        P.R = Math.abs(x) < 0.04 ? 0 : x;
+        updatePad();
+      }
+      pad.addEventListener("pointerdown", (e) => { pad.setPointerCapture(e.pointerId); padFromEvent(e); });
+      pad.addEventListener("pointermove", (e) => { if (pad.hasPointerCapture(e.pointerId)) padFromEvent(e); });
+      pad.addEventListener("dblclick", () => { P.F = 0; P.R = 0; updatePad(); });
+      pad.addEventListener("keydown", (e) => {
+        const st = 0.05, k = e.key;
+        if (k === "ArrowUp") P.F = clamp(P.F + st, -1, 1);
+        else if (k === "ArrowDown") P.F = clamp(P.F - st, -1, 1);
+        else if (k === "ArrowRight") P.R = clamp(P.R + st, -1, 1);
+        else if (k === "ArrowLeft") P.R = clamp(P.R - st, -1, 1);
+        else if (k === "Enter" || k === "Home") { P.F = 0; P.R = 0; }
+        else return;
+        e.preventDefault();
+        updatePad();
+      });
+
+      $("pauseBtn").addEventListener("click", () => { paused = !paused; syncUI(); });
+      $("resetBtn").addEventListener("click", () => selectLesson(lesson.id));
+      document.addEventListener("keydown", (e) => {
+        if (e.key === " " && !/INPUT|SELECT|BUTTON|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement !== pad) {
+          e.preventDefault(); paused = !paused; syncUI();
+        }
+      });
+
+      function updateLegend() {
+        const L = $("mapLegend");
+        const marks = `<span style="flex-basis:100%;height:0"></span><span><span class="ln" style="background:var(--accent)"></span>Stick</span><span><span class="ln" style="background:var(--flap)"></span>Disc tilt (low side)</span><span style="color:var(--accent)">▲ max pitch</span><span style="color:var(--flap)">▲ max flap (high point)</span>`;
+        const extra = `<span><span class="sw" style="background:${rgb(C_REV)}"></span>Reverse flow</span>`;
+        if (P.mapMode === "aoa") {
+          L.innerHTML = `<span>−4°</span><span class="bar" style="background:${grad(AOA_STOPS, -4, 14.99)}"></span><span>15°</span>
+            <span><span class="sw" style="background:${rgb(C_STALL)}"></span>Stalled (&gt;15°)</span>${extra}`;
+        } else if (P.mapMode === "speed") {
+          L.innerHTML = `<span>0 kt</span><span class="bar" style="background:${grad(SPEED_STOPS, 0, 1.45)}"></span><span>${Math.round((1.45 * TIP_SPEED * P.rpm) / 100 / KT)} kt</span>${extra}`;
+        } else if (P.mapMode === "lift") {
+          L.innerHTML = `<span>down</span><span class="bar" style="background:${grad(LIFT_STOPS, -0.2, 1.3)}"></span><span>high lift</span><span>(per metre of blade)</span>`;
+        } else {
+          L.innerHTML = `<span>0</span><span class="bar" style="background:${grad(INFLOW_STOPS, 0, 0.16)}"></span><span>strong downwash</span>`;
+        }
+        L.innerHTML += marks;
+      }
+
+      // =====================================================================
+      // CANVAS SETUP
+      // =====================================================================
+      function makeView(canvas) {
+        const v = { canvas, ctx: canvas.getContext("2d"), w: 1, h: 1 };
+        const fit = () => {
+          const r = canvas.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+          v.w = Math.max(1, r.width); v.h = Math.max(1, r.height);
+          canvas.width = Math.round(v.w * dpr); canvas.height = Math.round(v.h * dpr);
+          v.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        };
+        new ResizeObserver(fit).observe(canvas);
+        fit();
+        return v;
+      }
+      const V3 = makeView($("c3d")), VT = makeView($("cTop")), VG = makeView($("cGraph"));
+
+      // =====================================================================
+      // 3D VIEW
+      // =====================================================================
+      const cam = { az: -32 * D2R, el: 27 * D2R, dist: 4.6, target: [0, 0, -0.2] };
+      function setCam(name) {
+        const c = CAMS[name];
+        cam.az = c.az * D2R; cam.el = c.el * D2R; cam.dist = c.dist;
+      }
+      document.querySelectorAll("[data-cam]").forEach((b) => b.addEventListener("click", () => setCam(b.dataset.cam)));
+
+      (() => {
+        const c = $("c3d");
+        let drag = null;
+        c.addEventListener("pointerdown", (e) => { c.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, az: cam.az, el: cam.el }; });
+        c.addEventListener("pointermove", (e) => {
+          if (!drag) return;
+          cam.az = drag.az - (e.clientX - drag.x) * 0.008;
+          cam.el = clamp(drag.el + (e.clientY - drag.y) * 0.006, -0.3, 89 * D2R);
+        });
+        const end = () => (drag = null);
+        c.addEventListener("pointerup", end);
+        c.addEventListener("pointercancel", end);
+        c.addEventListener("wheel", (e) => { e.preventDefault(); cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.001), 2.2, 8); }, { passive: false });
+      })();
+
+      const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+      const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+      const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+      const LIGHT = norm([0.35, -0.45, 0.85]);
+      const ZUP = [0, 0, 1];
+
+      let CB = null;
+      function camBasis(v) {
+        const off = [Math.sin(cam.az) * Math.cos(cam.el), -Math.cos(cam.az) * Math.cos(cam.el), Math.sin(cam.el)];
+        const C = add(cam.target, mul(off, cam.dist));
+        const f = norm(mul(off, -1));
+        let r = cross(f, ZUP);
+        if (Math.hypot(r[0], r[1], r[2]) < 1e-4) r = [Math.cos(cam.az), Math.sin(cam.az), 0];
+        r = norm(r);
+        const u = cross(r, f);
+        CB = { C, f, r, u, cx: v.w / 2, cy: v.h * 0.5, F: Math.min(v.w * 1.05, v.h * 1.75) };
+      }
+      // Body items are pitched nose-down by the steady-flight attitude;
+      // the ground and the airflow arrows stay in the air frame.
+      let bodyFrame = true, attC = 1, attS = 0;
+      function proj(p) {
+        if (bodyFrame && attS) p = [p[0], p[1] * attC + p[2] * attS, -p[1] * attS + p[2] * attC];
+        const d = sub(p, CB.C), z = dot(d, CB.f);
+        if (z < 0.05) return null;
+        return [CB.cx + (CB.F * dot(d, CB.r)) / z, CB.cy - (CB.F * dot(d, CB.u)) / z, z];
+      }
+
+      // Blade direction in world for azimuth ψ (ψ = 0 over the tail).
+      const dirAt = (psi) => [P.dir * Math.sin(psi), -Math.cos(psi), 0];
+      const tanAt = (psi) => [P.dir * Math.cos(psi), Math.sin(psi), 0];
+
+      // Low-poly fuselage
+      const FUS_RINGS = [
+        [0.66, -0.5, 0.015, 0.02], [0.6, -0.49, 0.1, 0.1], [0.48, -0.47, 0.19, 0.16], [0.28, -0.46, 0.23, 0.19],
+        [0.0, -0.46, 0.225, 0.19], [-0.26, -0.45, 0.17, 0.15], [-0.48, -0.42, 0.075, 0.075],
+        [-0.95, -0.39, 0.042, 0.042], [-1.42, -0.37, 0.028, 0.028],
+      ];
+      const FUS_SEG = 12;
+      const FUS = (() => {
+        const rings = FUS_RINGS.map(([y, zc, hw, hh]) => {
+          const pts = [];
+          for (let i = 0; i < FUS_SEG; i++) {
+            const a = (i / FUS_SEG) * TAU;
+            pts.push([Math.cos(a) * hw, y, zc + Math.sin(a) * hh]);
+          }
+          return pts;
+        });
+        const quads = [];
+        for (let k = 0; k < rings.length - 1; k++) {
+          for (let i = 0; i < FUS_SEG; i++) {
+            const j = (i + 1) % FUS_SEG;
+            quads.push({ pts: [rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]], col: k >= 6 ? [52, 72, 94] : [44, 64, 86] });
+          }
+        }
+        // windscreen tint on the upper front ring faces
+        for (let i = 0; i < FUS_SEG; i++) {
+          if (i >= 1 && i <= 5) { quads[i].col = [70, 110, 140]; quads[FUS_SEG + i].col = [70, 110, 140]; }
+        }
+        quads.push({ pts: [[0, -1.3, -0.37], [0, -1.47, -0.36], [0, -1.5, -0.12], [0, -1.4, -0.14]], col: [52, 72, 94] });
+        quads.push({ pts: [[-0.16, -1.36, -0.37], [0.16, -1.36, -0.37], [0.16, -1.42, -0.37], [-0.16, -1.42, -0.37]], col: [52, 72, 94] });
+        return quads;
+      })();
+
+      function draw3D() {
+        const v = V3, ctx = v.ctx;
+        ctx.clearRect(0, 0, v.w, v.h);
+        const g = ctx.createLinearGradient(0, 0, 0, v.h);
+        g.addColorStop(0, "#0e1b2a"); g.addColorStop(1, "#0a131e");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, v.w, v.h);
+        camBasis(v);
+        attC = Math.cos(S.alphaS); attS = Math.sin(S.alphaS);
+        bodyFrame = false;
+
+        const items = [];
+        const poly = (pts3, col, opt = {}) => {
+          const sp = [];
+          let zs = 0;
+          for (const p of pts3) { const q = proj(p); if (!q) return; sp.push(q); zs += q[2]; }
+          let k = 1;
+          if (opt.shade !== false) {
+            const n = norm(cross(sub(pts3[1], pts3[0]), sub(pts3[pts3.length - 1], pts3[0])));
+            k = 0.42 + 0.58 * Math.abs(dot(n, LIGHT));
+          }
+          items.push({ t: "p", sp, z: zs / sp.length + (opt.bias || 0), fill: rgb(col, k, opt.alpha || 1), stroke: opt.stroke });
+        };
+        const line = (a, b, col, w = 1.5, dash = null, bias = 0) => {
+          const pa = proj(a), pb = proj(b);
+          if (!pa || !pb) return;
+          items.push({ t: "l", a: pa, b: pb, z: (pa[2] + pb[2]) / 2 + bias, col, w, dash });
+        };
+        const labels = [];
+        const label = (p, text, col, dx = 6, dy = -6) => { const q = proj(p); if (q) labels.push([q, text, col, dx, dy]); };
+
+        // Ground grid (drawn first, not sorted)
+        ctx.strokeStyle = "rgba(143,161,180,0.07)";
+        ctx.lineWidth = 1;
+        for (let i = -6; i <= 6; i++) {
+          const a = proj([i * 0.4, -2.4, -0.75]), b = proj([i * 0.4, 2.4, -0.75]);
+          const c = proj([-2.4, i * 0.4, -0.75]), d = proj([2.4, i * 0.4, -0.75]);
+          ctx.beginPath();
+          if (a && b) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+          if (c && d) { ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); }
+          ctx.stroke();
+        }
+
+        bodyFrame = true;
+        // Fuselage
+        if (P.showFus) {
+          for (const q of FUS) poly(q.pts, q.col);
+          for (const sx of [-0.21, 0.21]) {
+            line([sx, -0.42, -0.72], [sx, 0.5, -0.72], "#55687c", 3);
+            line([sx, 0.5, -0.72], [sx, 0.58, -0.66], "#55687c", 3);
+            line([sx, 0.25, -0.72], [sx * 0.6, 0.25, -0.6], "#55687c", 2.5);
+            line([sx, -0.2, -0.72], [sx * 0.6, -0.2, -0.6], "#55687c", 2.5);
+          }
+          // tail rotor
+          const tr = [];
+          for (let i = 0; i < 18; i++) { const a = (i / 18) * TAU; tr.push([-0.05 * P.dir, -1.45 + Math.cos(a) * 0.17, -0.3 + Math.sin(a) * 0.17]); }
+          poly(tr, [143, 161, 180], { alpha: 0.18, shade: false });
+          label([0, 0.7, -0.5], "Nose", "#8fa1b4", 8, 4);
+        }
+
+        const ex = P.exag;
+        const e = cfg.e;
+        // Mast
+        line([0, 0, -0.27], [0, 0, 0.02], "#7d8ea0", 5);
+
+        // Swashplate
+        const thColl = S.theta0 - 11 * D2R;
+        const swZ = (chi, rad) => -0.17 + 0.25 * thColl + 0.9 * rad * Math.min(2, ex) * thetaCyc(chi, S);
+        const ringPts = (rad, dz) => {
+          const pts = [];
+          for (let i = 0; i < 24; i++) { const chi = (i / 24) * TAU; pts.push(add(mul(dirAt(chi), rad), [0, 0, swZ(chi, rad) + dz])); }
+          return pts;
+        };
+        poly(ringPts(0.135, 0), [85, 104, 124]);
+        poly(ringPts(0.11, 0.022), [125, 145, 166], { bias: -0.001 });
+
+        // Blades
+        const N = cfg.N;
+        const segs = 9;
+        for (let i = 0; i < N; i++) {
+          const psi = S.psi + (TAU * i) / N;
+          const sp = Math.sin(psi), cp = Math.cos(psi);
+          const betaR = bladeBeta(S, cfg, i), betaD = bladeBetaD(S, cfg, i);
+          const zeta = cfg.teeter ? 0 : S.bl[i].z;
+          const beta = cfg.teeter ? cfg.precone * Math.min(ex, 2) + (betaR - cfg.precone) * ex : betaR * ex;
+          const lead = zeta * ex * 2;
+          const d0 = dirAt(psi), d1 = dirAt(psi + lead), t1 = tanAt(psi + lead);
+          const thc = thetaCyc(psi, S) - S.tand3 * (betaR - cfg.precone);
+          const hingeR = cfg.teeter ? 0 : e;
+          const H = mul(d0, hingeR);
+          const span = norm(add(mul(d1, Math.cos(beta)), mul(ZUP, Math.sin(beta))));
+          const nrm = norm(add(mul(d1, -Math.sin(beta)), mul(ZUP, Math.cos(beta))));
+          const at = (r) => (r <= hingeR ? mul(d0, r) : add(H, mul(span, r - hingeR)));
+          const chordAt = (r) => {
+            const th = S.theta0 + TWIST * (r - 0.75) + thc;
+            return add(mul(t1, Math.cos(th) * CHORD * 0.6), mul(nrm, Math.sin(th) * CHORD * 0.6));
+          };
+          // hub arm / root
+          line([0, 0, 0], at(Math.max(hingeR, 0.02) + 0.001), "#9aabbc", 4);
+          if (cfg.teeter) line([0, 0, 0], at(0.12), "#9aabbc", 5);
+          // pitch link from rotating swashplate to pitch horn
+          const hornR = Math.max(0.1, hingeR + 0.04);
+          const horn = add(at(hornR), mul(chordAt(hornR), 1.2));
+          const swp = add(mul(dirAt(psi), 0.11), mul(tanAt(psi), 0.035));
+          swp[2] = swZ(psi, 0.11) + 0.03;
+          line(swp, horn, "#c9a96a", 2);
+          // blade surface
+          const rStart = Math.max(cfg.r0 - 0.04, hingeR + 0.02);
+          for (let k = 0; k < segs; k++) {
+            const ra = rStart + ((TIP - rStart) * k) / segs, rb = rStart + ((TIP - rStart) * (k + 1)) / segs;
+            const pa = at(ra), pb = at(rb), ca = chordAt(ra), cb = chordAt(rb);
+            const rm = (ra + rb) / 2;
+            let col = [201, 211, 222];
+            if (P.colorAoA) {
+              aeroAt(rm, sp, cp, betaR, betaD, thc, S, cfg);
+              col = aoaColor(AE.alpha, AE.uT);
+            }
+            if (i === 0 && k === segs - 1) col = [239, 195, 106];
+            poly([add(pa, ca), add(pb, cb), sub(pb, cb), sub(pa, ca)], col, { stroke: i === 0 ? "rgba(239,195,106,0.5)" : null });
+          }
+          // hinge markers
+          if (!cfg.teeter) {
+            const q = proj(H);
+            if (q) items.push({ t: "c", p: q, z: q[2] - 0.01, r: 3, col: cfg.hingeless ? "#8fa1b4" : "#efc36a" });
+          }
+          if (i === 0) label(at(TIP), "Blade 1", "#efc36a", 8, -8);
+        }
+        if (cfg.teeter) {
+          const q = proj([0, 0, 0]);
+          if (q) items.push({ t: "c", p: q, z: q[2] - 0.01, r: 4, col: "#efc36a" });
+        }
+        // Hub
+        const hub = [];
+        for (let i = 0; i < 14; i++) { const a = (i / 14) * TAU; hub.push([Math.cos(a) * 0.05, Math.sin(a) * 0.05, 0.015]); }
+        poly(hub, [60, 74, 90], { shade: false, bias: -0.02 });
+
+        // Tip-path plane & thrust vector
+        const d = S.d;
+        const b1cE = d.b1c * ex, b1sE = d.b1s * ex;
+        const a0E = cfg.teeter ? cfg.precone * Math.min(ex, 2) : d.b0 * ex;
+        if (P.showTPP) {
+          const ring = [];
+          for (let i = 0; i <= 48; i++) {
+            const psi = (i / 48) * TAU;
+            const b = a0E + b1cE * Math.cos(psi) + b1sE * Math.sin(psi);
+            const h0 = cfg.teeter ? 0 : e;
+            ring.push(add(mul(dirAt(psi), h0 + (TIP - h0) * Math.cos(b)), [0, 0, (TIP - h0) * Math.sin(b)]));
+          }
+          for (let i = 0; i < 48; i++) line(ring[i], ring[i + 1], "rgba(239,195,106,0.55)", 1.3, [5, 4], -0.02);
+          // thrust: normal to the tip-path plane
+          const a1 = -b1cE, b1 = -b1sE;
+          const n = norm([P.dir * b1, -a1, 1]);
+          const TR = (S.CT * S.rpm2) / S.CTw;
+          const L = 0.25 + 0.4 * clamp(TR, 0, 2.2);
+          const top = mul(n, L);
+          line([0, 0, 0.02], top, "#efc36a", 3, null, -0.05);
+          arrowHead(items, [0, 0, 0.02], top, "#efc36a");
+          label(top, "Rotor thrust", "#efc36a", 8, 0);
+          line([0, 0, 0.02], [0, 0, 0.75], "rgba(143,161,180,0.6)", 1.3, [4, 4]);
+          label([0, 0, 0.75], "Shaft axis", "#8fa1b4", -78, -4);
+        }
+
+        // Airflow
+        if (P.showFlow) {
+          bodyFrame = false;
+          if (S.V > 1) {
+            const len = 0.18 + 0.9 * S.mu;
+            for (const x of [-0.75, 0.75]) {
+              for (const z of [0.12, -0.12]) {
+                const a = [x, 1.35, z], b = [x, 1.35 - len, z];
+                line(a, b, "#7fb8e6", 2);
+                arrowHead(items, a, b, "#7fb8e6");
+              }
+            }
+            label([0.75, 1.35, 0.12], "Relative airflow", "#7fb8e6", 6, -6);
+          }
+          bodyFrame = true;
+          for (const y of [0.75, 0.4, -0.4, -0.75]) {
+            const r = Math.abs(y), psi = y > 0 ? Math.PI : 0;
+            const lam = S.lam * (1 + S.kx * r * Math.cos(psi));
+            const len = clamp(lam * 4.5, 0.03, 0.8);
+            const a = [0, y, 0.5], b = [0, y, 0.5 - len];
+            line(a, b, "#8fd3e8", 2, null, -0.03);
+            arrowHead(items, a, b, "#8fd3e8");
+          }
+          label([0, -0.75, 0.5], "Induced flow", "#8fd3e8", 6, -4);
+        }
+
+        items.sort((a, b) => b.z - a.z);
+        for (const it of items) {
+          if (it.t === "p") {
+            ctx.beginPath();
+            ctx.moveTo(it.sp[0][0], it.sp[0][1]);
+            for (let i = 1; i < it.sp.length; i++) ctx.lineTo(it.sp[i][0], it.sp[i][1]);
+            ctx.closePath();
+            ctx.fillStyle = it.fill;
+            ctx.fill();
+            ctx.strokeStyle = it.stroke || it.fill;
+            ctx.lineWidth = it.stroke ? 1 : 0.6;
+            ctx.stroke();
+          } else if (it.t === "l") {
+            ctx.beginPath();
+            ctx.setLineDash(it.dash || []);
+            ctx.moveTo(it.a[0], it.a[1]);
+            ctx.lineTo(it.b[0], it.b[1]);
+            ctx.strokeStyle = it.col;
+            ctx.lineWidth = it.w;
+            ctx.lineCap = "round";
+            ctx.stroke();
+            ctx.setLineDash([]);
+          } else if (it.t === "h") {
+            ctx.beginPath();
+            ctx.moveTo(it.pts[0][0], it.pts[0][1]);
+            ctx.lineTo(it.pts[1][0], it.pts[1][1]);
+            ctx.lineTo(it.pts[2][0], it.pts[2][1]);
+            ctx.closePath();
+            ctx.fillStyle = it.col;
+            ctx.fill();
+          } else if (it.t === "c") {
+            ctx.beginPath();
+            ctx.arc(it.p[0], it.p[1], it.r, 0, TAU);
+            ctx.fillStyle = it.col;
+            ctx.fill();
+          }
+        }
+        ctx.font = "600 12px system-ui, Segoe UI, sans-serif";
+        for (const [q, text, col, dx, dy] of labels) {
+          ctx.fillStyle = "rgba(10,19,30,0.75)";
+          const w = ctx.measureText(text).width;
+          ctx.fillRect(q[0] + dx - 3, q[1] + dy - 11, w + 6, 15);
+          ctx.fillStyle = col;
+          ctx.fillText(text, q[0] + dx, q[1] + dy);
+        }
+
+        // HUD
+        ctx.font = "12px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#8fa1b4";
+        const exTxt = `flap ×${fmt(ex)} · lead-lag ×${fmt(ex * 2)}`;
+        ctx.fillText(exTxt, 12, v.h - 12);
+        ctx.textAlign = "right";
+        ctx.fillText(`${P.dir > 0 ? "↺ counter-clockwise" : "↻ clockwise"} (from above)`, v.w - 12, v.h - 12);
+        ctx.textAlign = "left";
+      }
+
+      function arrowHead(items, a3, b3, col) {
+        const a = proj(a3), b = proj(b3);
+        if (!a || !b) return;
+        const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+        const ux = dx / l, uy = dy / l, s = 8;
+        items.push({ t: "h", z: b[2] - 0.04, col, pts: [[b[0], b[1]], [b[0] - ux * s - uy * s * 0.5, b[1] - uy * s + ux * s * 0.5], [b[0] - ux * s + uy * s * 0.5, b[1] - uy * s - ux * s * 0.5]] });
+      }
+
+      // =====================================================================
+      // TOP VIEW (disc map)
+      // =====================================================================
+      function drawTop() {
+        const v = VT, ctx = v.ctx, s = P.dir;
+        ctx.clearRect(0, 0, v.w, v.h);
+        ctx.fillStyle = "#0f1b29";
+        ctx.fillRect(0, 0, v.w, v.h);
+        const cx = v.w / 2, cy = v.h / 2, Rp = Math.min(v.w, v.h) / 2 - 30;
+        const ang = (psi) => Math.PI / 2 - s * psi;
+        const acw = s > 0;
+        const pt = (r, psi) => [cx + s * r * Math.sin(psi) * Rp, cy + r * Math.cos(psi) * Rp];
+
+        // cells
+        const dA = TAU / MAP_NA, rStep = (TIP - ROOT) / MAP_NR;
+        const rS = TIP_SPEED * (P.rpm / 100);
+        for (let ia = 0; ia < MAP_NA; ia++) {
+          const p0 = ia * dA - 0.004, p1 = (ia + 1) * dA + 0.004;
+          for (let ir = 0; ir < MAP_NR; ir++) {
+            const k = ia * MAP_NR + ir;
+            const r0 = ROOT + ir * rStep, r1 = r0 + rStep + 0.002;
+            let col;
+            if (P.mapMode === "aoa") col = aoaColor(MAP.alpha[k], MAP.uT[k]);
+            else if (P.mapMode === "speed") col = MAP.uT[k] < 0 ? C_REV : speedRamp(MAP.uT[k]);
+            else if (P.mapMode === "lift") col = liftRamp(MAP.Fz[k] / 0.5);
+            else col = inflowRamp(MAP.lam[k]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r1 * Rp, ang(p0), ang(p1), acw);
+            ctx.arc(cx, cy, r0 * Rp, ang(p1), ang(p0), !acw);
+            ctx.closePath();
+            ctx.fillStyle = rgb(col);
+            ctx.fill();
+          }
+        }
+        // stall outline
+        if (P.mapMode !== "aoa") {
+          ctx.fillStyle = "rgba(226,71,95,0.55)";
+          for (let ia = 0; ia < MAP_NA; ia++) for (let ir = 0; ir < MAP_NR; ir++) {
+            if (!MAP.stall[ia * MAP_NR + ir]) continue;
+            const r = ROOT + (ir + 0.5) * rStep, [x, y] = pt(r, (ia + 0.5) * dA);
+            ctx.beginPath(); ctx.arc(x, y, 2, 0, TAU); ctx.fill();
+          }
+        }
+        // hub
+        ctx.beginPath(); ctx.arc(cx, cy, ROOT * Rp, 0, TAU); ctx.fillStyle = "#0f1b29"; ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, TIP * Rp, 0, TAU); ctx.strokeStyle = "#2c4258"; ctx.lineWidth = 1; ctx.stroke();
+
+        // reverse-flow circle
+        if (S.mu > 0.02) {
+          const [rx, ry] = pt(S.mu / 2, 1.5 * Math.PI);
+          ctx.beginPath(); ctx.arc(rx, ry, (S.mu / 2) * Rp, 0, TAU);
+          ctx.setLineDash([4, 3]); ctx.strokeStyle = "#c4a6ff"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        // azimuth ticks
+        ctx.font = "11px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#5d7086";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        for (let a = 0; a < 360; a += 30) {
+          const [x0, y0] = pt(TIP + 0.01, a * D2R), [x1, y1] = pt(TIP + 0.05, a * D2R);
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.strokeStyle = "#2c4258"; ctx.stroke();
+          if (a % 90 === 0) {
+            const [x, y] = pt(TIP + 0.12, a * D2R);
+            const t = a === 180 ? "180° nose" : a === 0 ? "0° tail" : `${a}°`;
+            const w = ctx.measureText(t).width;
+            ctx.fillText(t, clamp(x, w / 2 + 2, v.w - w / 2 - 2), clamp(y, 8, v.h - 8));
+          }
+        }
+
+        // blades
+        for (let i = 0; i < cfg.N; i++) {
+          const lead = cfg.teeter ? 0 : S.bl[i].z * P.exag * 2;
+          const psi = S.psi + (TAU * i) / cfg.N + lead;
+          const [x0, y0] = pt(0.04, psi), [x1, y1] = pt(TIP, psi);
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+          ctx.strokeStyle = i === 0 ? "rgba(239,195,106,0.95)" : "rgba(232,238,245,0.75)";
+          ctx.lineWidth = i === 0 ? 3 : 2.2; ctx.lineCap = "round"; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, 5, 0, TAU); ctx.fillStyle = "#8fa1b4"; ctx.fill();
+
+        // markers on the rim: max pitch, max flap
+        const d = S.d;
+        const thAmp = Math.hypot(d.th1c, d.th1s), bAmp = Math.hypot(d.b1c, d.b1s);
+        const psiTh = Math.atan2(d.th1s, d.th1c), psiB = Math.atan2(d.b1s, d.b1c);
+        const tri = (psi, col, txt) => {
+          const [x, y] = pt(TIP - 0.07, psi), [xi, yi] = pt(TIP - 0.005, psi);
+          const ux = xi - x, uy = yi - y, l = Math.hypot(ux, uy) || 1, nx = -uy / l, ny = ux / l;
+          ctx.beginPath(); ctx.moveTo(xi, yi); ctx.lineTo(x + nx * 6, y + ny * 6); ctx.lineTo(x - nx * 6, y - ny * 6); ctx.closePath();
+          ctx.fillStyle = col; ctx.fill();
+          ctx.strokeStyle = "#0a131e"; ctx.lineWidth = 1; ctx.stroke();
+          const [tx, ty] = pt(TIP - 0.17, psi);
+          ctx.font = "600 11px system-ui, Segoe UI, sans-serif";
+          const w = ctx.measureText(txt).width;
+          ctx.fillStyle = "rgba(10,19,30,0.8)"; ctx.fillRect(tx - w / 2 - 3, ty - 8, w + 6, 16);
+          ctx.fillStyle = col; ctx.fillText(txt, tx, ty);
+        };
+        // The pitch-to-flap angle only means "phase lag" when the flapping is
+        // a response to cyclic alone, i.e. close to the hover.
+        if (S.mu < 0.05 && thAmp > 0.3 * D2R && bAmp > 0.2 * D2R) {
+          const lag = ((((psiB - psiTh) % TAU) + TAU) % TAU);
+          ctx.beginPath();
+          ctx.arc(cx, cy, (TIP + 0.03) * Rp, ang(psiTh), ang(psiTh + lag), acw);
+          ctx.strokeStyle = "rgba(232,238,245,0.55)"; ctx.lineWidth = 2; ctx.stroke();
+          const [mx, my] = pt(TIP + 0.12, psiTh + lag / 2);
+          ctx.font = "600 12px system-ui, Segoe UI, sans-serif";
+          ctx.fillStyle = "rgba(10,19,30,0.8)";
+          const t = `${Math.round(lag * R2D)}°`, w = ctx.measureText(t).width;
+          ctx.fillRect(mx - w / 2 - 4, my - 9, w + 8, 18);
+          ctx.fillStyle = "#e8eef5"; ctx.fillText(t, mx, my);
+        }
+        if (thAmp > 0.3 * D2R) tri(psiTh, "#efc36a", "θ max");
+        if (bAmp > 0.2 * D2R) tri(psiB, "#5fd0b5", "β max");
+
+        // stick and disc tilt arrows (screen: forward = up)
+        const arrow = (dx, dy, col, txt) => {
+          const l = Math.hypot(dx, dy);
+          if (l < 4) return;
+          const x1 = cx + dx, y1 = cy + dy, ux = dx / l, uy = dy / l;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x1, y1); ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * 9 - uy * 5, y1 - uy * 9 + ux * 5); ctx.lineTo(x1 - ux * 9 + uy * 5, y1 - uy * 9 - ux * 5); ctx.closePath();
+          ctx.fillStyle = col; ctx.fill();
+        };
+        const Fs = clamp(P.F + S.Ft, -1, 1), Rs = clamp(P.R + S.Rt, -1, 1);
+        arrow(Rs * Rp * 0.45, -Fs * Rp * 0.45, "#efc36a", "stick");
+        const tiltF = d.b1c, tiltR = s * -d.b1s; // disc low side: forward = +b1c
+        const tk = (Rp * 0.45) / CYC_MAX;
+        arrow(clamp(tiltR * tk, -Rp * 0.7, Rp * 0.7), clamp(-tiltF * tk, -Rp * 0.7, Rp * 0.7), "#5fd0b5", "disc tilt");
+
+        // labels
+        ctx.font = "600 11px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#8fa1b4";
+        ctx.textAlign = s > 0 ? "right" : "left";
+        ctx.fillStyle = "#7fb8e6";
+        ctx.fillText(s > 0 ? "ADVANCING ▶" : "◀ ADVANCING", s > 0 ? v.w - 8 : 8, v.h - 10);
+        ctx.textAlign = s > 0 ? "left" : "right";
+        ctx.fillStyle = "#b49cf0";
+        ctx.fillText(s > 0 ? "◀ RETREATING" : "RETREATING ▶", s > 0 ? 8 : v.w - 8, v.h - 10);
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#8fa1b4";
+        ctx.fillText("▲ NOSE", 8, 14);
+        ctx.textAlign = "center";
+        if (S.mu > 0.1) {
+          const [rx, ry] = pt(S.mu / 2, 1.5 * Math.PI);
+          ctx.font = "600 10px system-ui, Segoe UI, sans-serif"; ctx.fillStyle = "#c4a6ff";
+          ctx.fillText("reverse flow", rx, ry);
+        }
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      }
+
+      // =====================================================================
+      // GRAPH
+      // =====================================================================
+      function drawGraph() {
+        const v = VG, ctx = v.ctx;
+        ctx.clearRect(0, 0, v.w, v.h);
+        ctx.fillStyle = "#0f1b29"; ctx.fillRect(0, 0, v.w, v.h);
+        const L = 44, Rm = 14, T = 16, B = 30, W = v.w - L - Rm, H = v.h - T - B;
+        const th = [], b = [], z = [];
+        for (let i = 0; i < NB; i++) { th.push(S.bins.th[i] * R2D); b.push(S.bins.b[i] * R2D); z.push(S.bins.z[i] * R2D); }
+        let lo = Math.min(...th, ...b, ...z), hi = Math.max(...th, ...b, ...z);
+        lo = Math.min(lo, -2); hi = Math.max(hi, 4);
+        const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+        const step = hi - lo > 30 ? 10 : hi - lo > 12 ? 5 : 2;
+        const X = (a) => L + (a / 360) * W, Yv = (val) => T + (1 - (val - lo) / (hi - lo)) * H;
+
+        ctx.font = "11px ui-monospace, Consolas, monospace";
+        ctx.textAlign = "right"; ctx.textBaseline = "middle";
+        for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) {
+          ctx.strokeStyle = g === 0 ? "#2c4258" : "#1a2a3c"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(L, Yv(g)); ctx.lineTo(L + W, Yv(g)); ctx.stroke();
+          ctx.fillStyle = "#5d7086"; ctx.fillText(`${g}°`, L - 6, Yv(g));
+        }
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        const names = { 0: "tail", 90: "advancing", 180: "nose", 270: "retreating", 360: "tail" };
+        for (let a = 0; a <= 360; a += 90) {
+          ctx.strokeStyle = "#1a2a3c"; ctx.beginPath(); ctx.moveTo(X(a), T); ctx.lineTo(X(a), T + H); ctx.stroke();
+          ctx.fillStyle = "#5d7086"; ctx.fillText(`${a}°`, X(a), T + H + 4);
+          ctx.fillStyle = "#43566b"; ctx.fillText(names[a], X(a), T + H + 16 > v.h - 12 ? T + H + 15 : T + H + 16);
+        }
+
+        const series = (arr, col, w) => {
+          ctx.beginPath();
+          for (let i = 0; i <= NB; i++) {
+            const k = i % NB, a = ((i + 0.5) / NB) * 360;
+            const x = X(Math.min(360, a)), y = Yv(arr[k]);
+            i ? ctx.lineTo(x, y) : ctx.moveTo(X(0), Yv(arr[0]));
+            if (i === 0) ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke();
+        };
+        if (cfg.lag) series(z, "#b49cf0", 2);
+        series(b, "#5fd0b5", 2.5);
+        series(th, "#efc36a", 2.5);
+
+        // max markers + phase lag bracket
+        const d = S.d;
+        const thAmp = Math.hypot(d.th1c, d.th1s), bAmp = Math.hypot(d.b1c, d.b1s);
+        const deg = (x) => ((x * R2D) % 360 + 360) % 360;
+        const aTh = deg(Math.atan2(d.th1s, d.th1c)), aB = deg(Math.atan2(d.b1s, d.b1c));
+        ctx.setLineDash([3, 3]); ctx.lineWidth = 1.2;
+        if (thAmp > 0.3 * D2R) { ctx.strokeStyle = "rgba(239,195,106,0.8)"; ctx.beginPath(); ctx.moveTo(X(aTh), T); ctx.lineTo(X(aTh), T + H); ctx.stroke(); }
+        if (bAmp > 0.2 * D2R) { ctx.strokeStyle = "rgba(95,208,181,0.8)"; ctx.beginPath(); ctx.moveTo(X(aB), T); ctx.lineTo(X(aB), T + H); ctx.stroke(); }
+        ctx.setLineDash([]);
+        if (S.mu < 0.05 && thAmp > 0.3 * D2R && bAmp > 0.2 * D2R) {
+          const lag = (aB - aTh + 360) % 360;
+          const x0 = X(aTh), x1 = X(aTh + lag <= 360 ? aTh + lag : 360);
+          const y = T + 6;
+          ctx.strokeStyle = "#e8eef5"; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 - 6, y - 3); ctx.lineTo(x1 - 6, y + 3); ctx.closePath(); ctx.fillStyle = "#e8eef5"; ctx.fill();
+          ctx.font = "600 11px system-ui, Segoe UI, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          const t = `phase lag ${Math.round(lag)}°`, w = ctx.measureText(t).width;
+          const mx = clamp((x0 + x1) / 2, L + w / 2 + 2, L + W - w / 2 - 2);
+          ctx.fillStyle = "rgba(15,27,41,0.85)"; ctx.fillRect(mx - w / 2 - 3, y + 2, w + 6, 15);
+          ctx.fillStyle = "#e8eef5"; ctx.textBaseline = "top"; ctx.fillText(t, mx, y + 3);
+        }
+
+        // current azimuth of blade 1
+        const cur = deg(S.psi);
+        ctx.strokeStyle = "rgba(232,238,245,0.35)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(X(cur), T); ctx.lineTo(X(cur), T + H); ctx.stroke();
+        const k = Math.floor((cur / 360) * NB) % NB;
+        for (const [arr, col] of [[th, "#efc36a"], [b, "#5fd0b5"]].concat(cfg.lag ? [[z, "#b49cf0"]] : [])) {
+          ctx.beginPath(); ctx.arc(X(cur), Yv(arr[k]), 4, 0, TAU); ctx.fillStyle = col; ctx.fill();
+        }
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      }
+
+      // =====================================================================
+      // STATS
+      // =====================================================================
+      function renderStats() {
+        const d = S.d, rS = TIP_SPEED * (P.rpm / 100), Vms = S.V * KT;
+        const TR = (S.CT * S.rpm2) / S.CTw;
+        const a1 = -d.b1c * R2D, lat = P.dir * -d.b1s * R2D;
+        const tilt = [Math.abs(a1) >= 0.05 ? `${fmt(Math.abs(a1))}° ${a1 > 0 ? "back" : "fwd"}` : "", Math.abs(lat) >= 0.05 ? `${fmt(Math.abs(lat))}° ${lat > 0 ? "right" : "left"}` : ""].filter(Boolean).join(" · ") || "level";
+        const tot = MAP.liftAdv + MAP.liftRet;
+        const adv = tot > 0 ? Math.round((MAP.liftAdv / tot) * 100) : 50;
+        const stall = MAP.stallFrac * 100;
+        const list = [
+          ["Advance ratio μ", S.mu.toFixed(3)],
+          ["Advancing / retreating tip", `${Math.round((rS + Vms) / KT)} / ${Math.round((rS - Vms) / KT)} kt`],
+          ["Collective θ0.75", `${fmt(S.theta0 * R2D)}°`],
+          ["Thrust / weight", TR.toFixed(2)],
+          ["Coning (a₀)", `${fmt((cfg.teeter ? cfg.precone : d.b0) * R2D, 2)}°`],
+          ["Disc tilt (to shaft)", tilt],
+          ["Phase lag (theory)", `${Math.round(cfg.phaseLag * R2D)}°`],
+          ["Induced velocity", `${fmt(S.lam * rS)} m/s`],
+          ["Fuselage attitude", S.alphaS * R2D < 0.05 ? "level" : `${fmt(S.alphaS * R2D)}° nose down`],
+          ["Lift advancing : retreating", `${adv} : ${100 - adv}`, Math.abs(adv - 50) > 8],
+          ["Max AoA, retreating side", `${fmt(MAP.maxRet * R2D)}°`, MAP.maxRet > ALPHA_STALL],
+          ["Stalled area of disc", stall < 0.05 ? "none" : `${fmt(stall)} %`, stall >= 0.05],
+        ];
+        $("stats").innerHTML = list.map(([k, v, w]) => `<div class="stat${w ? " warn" : ""}"><span>${k}</span><b>${v}</b></div>`).join("");
+      }
+
+      // =====================================================================
+      // LOOP
+      // =====================================================================
+      let last = performance.now(), frame = 0;
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        updateTweens(dt);
+        if (!paused) S.V += clamp(P.V - S.V, -30 * dt, 30 * dt);
+        cfg = makeConfig(P);
+        prepare(S, P, cfg);
+        if (!paused) {
+          const dpsi = P.speed * TAU * dt;
+          const n = Math.max(1, Math.ceil(dpsi / 0.02));
+          for (let i = 0; i < n; i++) stepSim(S, P, cfg, dpsi / n);
+        }
+        computeMap(S, cfg, MAP);
+        draw3D();
+        drawTop();
+        drawGraph();
+        if (frame++ % 6 === 0) { renderStats(); syncUI(); }
+        requestAnimationFrame(loop);
+      }
+
+      renderEffects();
+      selectLesson("free");
+      requestAnimationFrame(loop);
+    </script>
+    <script src="../home-link.js" defer></script>
+  </body>
+</html>
