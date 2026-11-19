@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../../atplh-tools-rotor.svg" />
+    <title>Comms reference</title>
+    <style>
+      :root {
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-2: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
+        --text: #e8eef5;
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --ok: #7fd6a0;
+        --bad: #f08a7a;
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+
+      .eyebrow { margin: 0; color: var(--accent); font: 600 0.78rem ui-monospace, Consolas, monospace; letter-spacing: 0.06em; }
+      h1 { margin: 4px 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+      .lead { margin: 0; color: var(--muted); max-width: 720px; }
+
+      .tabs {
+        display: inline-flex;
+        gap: 4px;
+        margin: 24px 0 20px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .tabs button {
+        padding: 7px 16px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+      .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+      button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      .search {
+        width: 100%;
+        max-width: 360px;
+        margin-bottom: 16px;
+        padding: 9px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
+      .search::placeholder { color: var(--faint); }
+
+      .grid { columns: 2 420px; column-gap: 16px; }
+
+      .card {
+        break-inside: avoid;
+        margin: 0 0 16px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .card h2 { margin: 0 0 10px; font-size: 1rem; font-weight: 600; }
+      .card p { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+      .card ol, .card ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+      .card li + li { margin-top: 4px; }
+      .card strong { color: var(--text); font-weight: 600; }
+      .card .note { margin-top: 10px; color: var(--faint); font-size: 0.82rem; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+      th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: var(--faint); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      td { color: var(--muted); }
+      td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+      tr:last-child td { border-bottom: 0; }
+      .mono { font-family: ui-monospace, Consolas, monospace; }
+
+      .code { font: 700 1.05rem ui-monospace, Consolas, monospace; color: var(--accent); }
+
+      .light { display: inline-flex; align-items: center; gap: 6px; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+      .dot.flash { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
+
+      .phon { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px 10px; font-size: 0.88rem; }
+      .phon span { color: var(--muted); }
+      .phon b { color: var(--text); font-weight: 600; margin-right: 4px; }
+
+      [hidden] { display: none !important; }
+
+      /* Quiz */
+      .quiz { max-width: 720px; }
+      .quiz-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 0.86rem; margin-bottom: 8px; }
+      .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-bottom: 18px; }
+      .bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+      .q-text { margin: 0 0 16px; font-size: 1.1rem; font-weight: 600; }
+      .options { display: grid; gap: 8px; }
+      .options button {
+        padding: 12px 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .options button:hover:not(:disabled) { border-color: var(--faint); }
+      .options button:disabled { cursor: default; }
+      .options button.right { border-color: var(--ok); background: rgba(127, 214, 160, 0.08); }
+      .options button.wrong { border-color: var(--bad); background: rgba(240, 138, 122, 0.08); }
+      .why { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--surface); color: var(--muted); font-size: 0.9rem; border-radius: 0 8px 8px 0; }
+      .quiz-actions { display: flex; gap: 8px; margin-top: 16px; }
+      .btn {
+        padding: 8px 16px;
+        border: 1px solid rgba(239, 195, 106, 0.5);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--accent);
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+      .btn.secondary { border-color: var(--line-strong); color: var(--text); }
+      .result { font-size: 2rem; font-weight: 700; margin: 0; }
+      .missed { margin: 16px 0 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+      .missed li + li { margin-top: 8px; }
+      .missed strong { color: var(--text); }
+
+      @media (max-width: 560px) { .page { padding: 24px 16px 48px; } }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">090 · COMMUNICATIONS</p>
+      <h1>Comms reference</h1>
+      <p class="lead">The things the exam asks most: transponder codes, distress and urgency, radio failure, light signals, read-backs and standard words. Based on ICAO Annex 10 and SERA.</p>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="ref">Reference</button>
+        <button role="tab" aria-selected="false" data-tab="quiz">Quiz</button>
+      </div>
+
+      <!-- ================= Reference ================= -->
+      <section id="tab-ref">
+        <input class="search" id="filter" type="search" placeholder="Filter cards… (e.g. 7600, light, roger)" aria-label="Filter reference cards" />
+        <div class="grid" id="cards">
+          <article class="card">
+            <h2>Transponder codes</h2>
+            <table>
+              <tr><td class="code">7700</td><td>Emergency</td></tr>
+              <tr><td class="code">7600</td><td>Radio communication failure</td></tr>
+              <tr><td class="code">7500</td><td>Unlawful interference (hijack)</td></tr>
+              <tr><td class="code">7000</td><td>VFR conspicuity code (SERA / Europe)</td></tr>
+              <tr><td class="code">2000</td><td>No code assigned, entering SSR airspace from an area where SSR was not required</td></tr>
+            </table>
+            <p class="note">Memory aid: 75 taken alive, 76 radio fix, 77 going to heaven. 1200 is the North American VFR code, not used in Europe.</p>
+          </article>
+
+          <article class="card">
+            <h2>Distress and urgency</h2>
+            <p><strong>Distress (MAYDAY ×3):</strong> grave and imminent danger, immediate assistance required.</p>
+            <p><strong>Urgency (PAN PAN ×3):</strong> concerns safety, but no immediate assistance needed. <strong>PAN PAN MEDICAL</strong> for medical transports.</p>
+            <p>Distress message, in this order:</p>
+            <ol>
+              <li>Name of the station addressed (time permitting)</li>
+              <li>Aircraft identification</li>
+              <li>Nature of the emergency</li>
+              <li>Intention of the person in command</li>
+              <li>Present position, level and heading</li>
+            </ol>
+            <p class="note">First call on the frequency in use; otherwise 121.5 MHz. Squawk 7700.</p>
+          </article>
+
+          <article class="card">
+            <h2>Distress traffic control</h2>
+            <table>
+              <tr><td>STOP TRANSMITTING – MAYDAY</td><td>Imposes silence (by the aircraft in distress or the station in control)</td></tr>
+              <tr><td>MAYDAY RELAY</td><td>Passing on a distress message for another station</td></tr>
+              <tr><td>DISTRESS TRAFFIC ENDED</td><td>Cancels radio silence when the distress is over</td></tr>
+              <tr><td>CANCEL DISTRESS</td><td>Aircraft no longer in distress (also cancel urgency for PAN)</td></tr>
+            </table>
+          </article>
+
+          <article class="card">
+            <h2>Radio failure</h2>
+            <p><strong>Always:</strong> squawk 7600, keep listening and transmit your position and intentions blind (“TRANSMITTING BLIND”) on the frequency in use.</p>
+            <p><strong>VMC:</strong> continue in VMC, land at the nearest suitable aerodrome and report arrival to ATC by the quickest means.</p>
+            <p><strong>IMC / IFR</strong>: keep the last assigned speed and level (or the minimum flight altitude, if higher) for:</p>
+            <ul>
+              <li><strong>20 min</strong> after failing to report over a compulsory reporting point, where radar is <strong>not</strong> used</li>
+              <li><strong>7 min</strong> where radar <strong>is</strong> used, counted from the latest of: reaching the last assigned level, squawking 7600, or failing to report</li>
+            </ul>
+            <p class="note">Then continue in accordance with the flight plan. Check your syllabus for the full SERA.14083 procedure.</p>
+          </article>
+
+          <article class="card">
+            <h2>Aerodrome light signals</h2>
+            <table>
+              <thead><tr><th>Signal</th><th>In flight</th><th>On the ground</th></tr></thead>
+              <tr><td><span class="light"><i class="dot" style="background:#4fd27e"></i>Steady green</span></td><td>Cleared to land</td><td>Cleared for take-off</td></tr>
+              <tr><td><span class="light"><i class="dot" style="background:#ef5b4c"></i>Steady red</span></td><td>Give way to other aircraft and continue circling</td><td>Stop</td></tr>
+              <tr><td><span class="light"><i class="dot flash" style="background:#4fd27e;color:#4fd27e"></i>Green flashes</span></td><td>Return for landing</td><td>Cleared to taxi</td></tr>
+              <tr><td><span class="light"><i class="dot flash" style="background:#ef5b4c;color:#ef5b4c"></i>Red flashes</span></td><td>Aerodrome unsafe, do not land</td><td>Taxi clear of the landing area in use</td></tr>
+              <tr><td><span class="light"><i class="dot flash" style="background:#f2f2f2;color:#f2f2f2"></i>White flashes</span></td><td>Land at this aerodrome and proceed to the apron</td><td>Return to starting point on the aerodrome</td></tr>
+              <tr><td><span class="light"><i class="dot" style="background:#ef5b4c;box-shadow:0 0 8px #ef5b4c"></i>Red pyrotechnic</span></td><td>Notwithstanding previous instructions, do not land for the time being</td><td>—</td></tr>
+            </table>
+          </article>
+
+          <article class="card">
+            <h2>Mandatory read-back</h2>
+            <ul>
+              <li>ATC route clearances</li>
+              <li>Clearances to enter, land on, take off from, hold short of, cross, taxi or backtrack on any runway</li>
+              <li>Runway in use</li>
+              <li>Altimeter settings</li>
+              <li>SSR codes</li>
+              <li>Newly assigned frequencies</li>
+              <li>Level, heading and speed instructions</li>
+              <li>Transition levels</li>
+            </ul>
+            <p class="note">Wind, weather and traffic information do not need to be read back. End every read-back with your call sign.</p>
+          </article>
+
+          <article class="card">
+            <h2>Standard words</h2>
+            <table>
+              <tr><td>ACKNOWLEDGE</td><td>Let me know you have received and understood</td></tr>
+              <tr><td>AFFIRM</td><td>Yes</td></tr>
+              <tr><td>NEGATIVE</td><td>No / permission not granted / that is not correct</td></tr>
+              <tr><td>ROGER</td><td>I have received all of your last transmission. Never the answer to a question or in place of a read-back</td></tr>
+              <tr><td>WILCO</td><td>I understand your message and will comply</td></tr>
+              <tr><td>CORRECTION</td><td>An error has been made; the correct version is…</td></tr>
+              <tr><td>DISREGARD</td><td>Ignore that transmission</td></tr>
+              <tr><td>SAY AGAIN</td><td>Repeat all, or the following part, of your last transmission</td></tr>
+              <tr><td>I SAY AGAIN</td><td>I repeat for clarity or emphasis</td></tr>
+              <tr><td>STANDBY</td><td>Wait and I will call you</td></tr>
+              <tr><td>UNABLE</td><td>I cannot comply</td></tr>
+              <tr><td>BREAK</td><td>Separates portions of a message</td></tr>
+              <tr><td>BREAK BREAK</td><td>Separates messages to different aircraft in a busy environment</td></tr>
+              <tr><td>CONFIRM</td><td>I request verification of (clearance, instruction, action, information)</td></tr>
+              <tr><td>READ BACK</td><td>Repeat all, or the specified part, of this message as received</td></tr>
+            </table>
+          </article>
+
+          <article class="card">
+            <h2>Transponder phraseology</h2>
+            <table>
+              <tr><td>SQUAWK (code)</td><td>Set the code</td></tr>
+              <tr><td>SQUAWK IDENT</td><td>Operate the special position identification feature</td></tr>
+              <tr><td>SQUAWK CHARLIE</td><td>Select pressure-altitude reporting</td></tr>
+              <tr><td>STOP SQUAWK CHARLIE</td><td>Deselect altitude reporting (wrong indication)</td></tr>
+              <tr><td>SQUAWK STANDBY</td><td>Select standby</td></tr>
+              <tr><td>RECYCLE (code)</td><td>Reselect the assigned mode and code</td></tr>
+            </table>
+          </article>
+
+          <article class="card">
+            <h2>Message priority</h2>
+            <ol>
+              <li>Distress (MAYDAY)</li>
+              <li>Urgency (PAN PAN)</li>
+              <li>Direction-finding</li>
+              <li>Flight safety</li>
+              <li>Meteorological</li>
+              <li>Flight regularity</li>
+            </ol>
+          </article>
+
+          <article class="card">
+            <h2>Readability scale</h2>
+            <table>
+              <tr><td class="mono">1</td><td>Unreadable</td></tr>
+              <tr><td class="mono">2</td><td>Readable now and then</td></tr>
+              <tr><td class="mono">3</td><td>Readable but with difficulty</td></tr>
+              <tr><td class="mono">4</td><td>Readable</td></tr>
+              <tr><td class="mono">5</td><td>Perfectly readable</td></tr>
+            </table>
+          </article>
+
+          <article class="card">
+            <h2>Call signs</h2>
+            <p>An aircraft may abbreviate its call sign <strong>only after the ground station has abbreviated it</strong>, once communication is established and no confusion is likely.</p>
+            <p>Registration call signs: first character plus at least the last two, e.g. <span class="mono">G-ABCD → G-CD</span>, <span class="mono">N57826 → N26</span>.</p>
+            <p>Airline call signs (telephony designator + flight number) are not abbreviated.</p>
+          </article>
+
+          <article class="card">
+            <h2>Phonetic alphabet</h2>
+            <div class="phon" id="phon"></div>
+          </article>
+
+          <article class="card">
+            <h2>Numbers</h2>
+            <div class="phon">
+              <span><b>0</b>ZE-RO</span><span><b>1</b>WUN</span><span><b>2</b>TOO</span><span><b>3</b>TREE</span><span><b>4</b>FOW-er</span>
+              <span><b>5</b>FIFE</span><span><b>6</b>SIX</span><span><b>7</b>SEV-en</span><span><b>8</b>AIT</span><span><b>9</b>NIN-er</span>
+              <span><b>.</b>DAY-SEE-MAL</span><span><b>100</b>HUN-dred</span><span><b>1000</b>TOU-SAND</span>
+            </div>
+            <p class="note">Frequencies: 121.5 = “WUN TOO WUN DAY-SEE-MAL FIFE”. Emergency VHF: 121.5 MHz.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================= Quiz ================= -->
+      <section id="tab-quiz" class="quiz" hidden>
+        <div id="quiz"></div>
+      </section>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      // Tabs
+      document.querySelectorAll(".tabs button").forEach((b) =>
+        b.addEventListener("click", () => {
+          document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
+          $("tab-ref").hidden = b.dataset.tab !== "ref";
+          $("tab-quiz").hidden = b.dataset.tab !== "quiz";
+          if (b.dataset.tab === "quiz" && !quiz) startQuiz();
+        })
+      );
+
+      // Phonetic alphabet
+      $("phon").innerHTML = "Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey X-ray Yankee Zulu"
+        .split(" ").map((w) => `<span><b>${w[0]}</b>${w}</span>`).join("");
+
+      // Card filter
+      $("filter").addEventListener("input", (e) => {
+        const terms = e.target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        document.querySelectorAll("#cards .card").forEach((c) => {
+          const text = c.textContent.toLowerCase();
+          c.hidden = !terms.every((t) => text.includes(t));
+        });
+      });
+
+      // ---------- Quiz ----------
+      // First option is always the correct one; options are shuffled when shown.
+      const BANK = [
+        { q: "Which SSR code indicates unlawful interference?", o: ["7500", "7600", "7700", "7000"], why: "7500 = unlawful interference, 7600 = radio failure, 7700 = emergency." },
+        { q: "Which SSR code indicates radio communication failure?", o: ["7600", "7500", "7700", "2000"], why: "7600 = radio failure." },
+        { q: "Which SSR code indicates a general emergency?", o: ["7700", "7600", "7500", "7000"], why: "7700 = emergency." },
+        { q: "In SERA airspace, which code do VFR flights squawk when no code has been assigned?", o: ["7000", "1200", "2000", "7600"], why: "7000 is the European VFR conspicuity code. 1200 is used in North America." },
+        { q: "The urgency signal is:", o: ["PAN PAN, spoken three times", "MAYDAY, spoken three times", "SECURITE, spoken three times", "PAN PAN, spoken once"], why: "Urgency: PAN PAN ×3. Distress: MAYDAY ×3." },
+        { q: "Which message category has the highest priority after urgency messages?", o: ["Direction-finding messages", "Flight safety messages", "Meteorological messages", "Flight regularity messages"], why: "Order: distress, urgency, direction-finding, flight safety, meteorological, flight regularity." },
+        { q: "What does WILCO mean?", o: ["I understand your message and will comply with it", "I have received all of your last transmission", "Wait and I will call you", "I cannot comply"], why: "ROGER = received. WILCO = understood and will comply." },
+        { q: "What does ROGER mean?", o: ["I have received all of your last transmission", "I understand your message and will comply with it", "Yes", "Permission granted"], why: "ROGER must never be used to answer a question requiring yes/no or in place of a read-back." },
+        { q: "Which word tells the station that an error was made and gives the correct version?", o: ["CORRECTION", "DISREGARD", "I SAY AGAIN", "NEGATIVE"], why: "DISREGARD means: consider that transmission as not sent." },
+        { q: "What is the correct word for “yes”?", o: ["AFFIRM", "AFFIRMATIVE", "ROGER", "CORRECT"], why: "ICAO phraseology uses AFFIRM. AFFIRMATIVE can be mistaken for NEGATIVE." },
+        { q: "BREAK BREAK is used to:", o: ["Separate messages to different aircraft in a very busy environment", "Separate portions of a message", "Impose radio silence", "Cancel a transmission"], why: "BREAK separates parts of one message. BREAK BREAK separates messages to different aircraft." },
+        { q: "A steady red light directed at an aircraft in flight means:", o: ["Give way to other aircraft and continue circling", "Aerodrome unsafe, do not land", "Do not land for the time being", "Return for landing"], why: "Red flashes in flight = aerodrome unsafe. Red pyrotechnic = do not land for the time being." },
+        { q: "A series of green flashes directed at an aircraft on the ground means:", o: ["Cleared to taxi", "Cleared for take-off", "Return to starting point", "Taxi clear of the landing area"], why: "Steady green on the ground = cleared for take-off. Green flashes = cleared to taxi." },
+        { q: "A series of red flashes directed at an aircraft in flight means:", o: ["Aerodrome unsafe, do not land", "Give way and continue circling", "Return for landing", "Land and proceed to the apron"], why: "Steady red in flight = give way and continue circling." },
+        { q: "A series of white flashes directed at an aircraft in flight means:", o: ["Land at this aerodrome and proceed to the apron", "Return for landing", "Cleared to land", "Aerodrome unsafe, do not land"], why: "On the ground, white flashes mean return to the starting point on the aerodrome." },
+        { q: "A red pyrotechnic light means:", o: ["Notwithstanding any previous instructions, do not land for the time being", "Aerodrome unsafe, do not land", "Stop", "Give way and continue circling"], why: "Red pyrotechnic overrides any previous clearance: do not land for now." },
+        { q: "A steady green light directed at an aircraft on the ground means:", o: ["Cleared for take-off", "Cleared to taxi", "Cleared to land", "Return to starting point"], why: "In flight, steady green = cleared to land." },
+        { q: "Readability 3 means:", o: ["Readable but with difficulty", "Readable now and then", "Readable", "Perfectly readable"], why: "1 unreadable · 2 now and then · 3 with difficulty · 4 readable · 5 perfectly readable." },
+        { q: "Which of these must be read back?", o: ["An SSR code", "The surface wind", "Traffic information", "The current weather"], why: "Mandatory read-back includes SSR codes, altimeter settings, runway in use, frequencies, level/heading/speed instructions, route and runway clearances, transition levels." },
+        { q: "Which of these does NOT need to be read back?", o: ["Traffic information", "Altimeter setting", "Runway in use", "Heading instruction"], why: "Traffic, weather and wind information are acknowledged, not read back." },
+        { q: "VFR in VMC, you lose two-way radio. You should:", o: ["Squawk 7600, continue in VMC, land at the nearest suitable aerodrome and report arrival to ATC", "Squawk 7700 and continue to destination", "Climb to the last assigned level and hold for 20 minutes", "Return immediately to the departure aerodrome"], why: "VMC radio failure: continue in VMC, land at the nearest suitable aerodrome, report arrival by the most expeditious means." },
+        { q: "IFR radio failure in IMC, in airspace where radar is NOT used: how long do you maintain the last assigned speed and level?", o: ["20 minutes after failing to report over a compulsory reporting point", "7 minutes after squawking 7600", "3 minutes", "Until reaching the destination"], why: "20 min where radar is not used; 7 min where it is (SERA.14083)." },
+        { q: "IFR radio failure in IMC, in airspace where radar IS used: how long do you maintain the last assigned speed and level?", o: ["7 minutes", "20 minutes", "10 minutes", "30 minutes"], why: "7 minutes from the latest of: reaching the last assigned level, setting 7600, or failing to report a compulsory point." },
+        { q: "The VHF emergency frequency is:", o: ["121.5 MHz", "123.45 MHz", "118.0 MHz", "243.0 MHz"], why: "121.5 MHz VHF. 243.0 MHz is the military UHF emergency frequency." },
+        { q: "How does the station in control of distress traffic impose silence?", o: ["STOP TRANSMITTING – MAYDAY", "DISTRESS TRAFFIC ENDED", "BREAK BREAK", "MAYDAY RELAY"], why: "DISTRESS TRAFFIC ENDED cancels the silence when the distress is over." },
+        { q: "A distress message is first transmitted on:", o: ["The air-ground frequency in use at the time", "121.5 MHz", "The FIS frequency", "Any ATC frequency"], why: "Use the frequency in use first; change to 121.5 MHz if no response." },
+        { q: "Which item is NOT part of a distress message?", o: ["Destination weather", "Nature of the emergency", "Intention of the person in command", "Present position, level and heading"], why: "Station addressed, identification, nature of the emergency, intentions, position/level/heading." },
+        { q: "When may an aircraft abbreviate its call sign?", o: ["Only after the ground station has abbreviated it", "After the first contact", "Whenever the frequency is busy", "Never"], why: "Abbreviation is only allowed once the ground station has used the abbreviated form." },
+        { q: "How is the number 9 pronounced?", o: ["NIN-er", "NINE", "NEEN", "NI-ner-er"], why: "Also: 3 TREE, 4 FOW-er, 5 FIFE." },
+        { q: "SQUAWK IDENT means:", o: ["Operate the special position identification feature", "Select altitude reporting", "Reselect the assigned code", "Select standby"], why: "SQUAWK CHARLIE = altitude reporting; RECYCLE = reselect mode and code." },
+      ];
+
+      let quiz = null;
+
+      const shuffle = (a) => {
+        const r = a.slice();
+        for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+        return r;
+      };
+      const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+      function startQuiz(n = 15) {
+        quiz = { items: shuffle(BANK).slice(0, n), i: 0, score: 0, missed: [] };
+        showQuestion();
+      }
+
+      function showQuestion() {
+        const { items, i, score } = quiz;
+        const item = items[i];
+        const opts = shuffle(item.o);
+        $("quiz").innerHTML = `
+          <div class="quiz-head"><span>Question ${i + 1} of ${items.length}</span><span>Score ${score}</span></div>
+          <div class="bar"><i style="width:${(i / items.length) * 100}%"></i></div>
+          <p class="q-text">${esc(item.q)}</p>
+          <div class="options">${opts.map((o) => `<button data-o="${esc(o)}">${esc(o)}</button>`).join("")}</div>
+          <div id="after"></div>`;
+        $("quiz").querySelectorAll(".options button").forEach((b) => b.addEventListener("click", () => answer(b)));
+      }
+
+      function answer(btn) {
+        const item = quiz.items[quiz.i];
+        const correct = item.o[0];
+        const ok = btn.dataset.o === correct;
+        if (ok) quiz.score++;
+        else quiz.missed.push(item);
+        $("quiz").querySelectorAll(".options button").forEach((b) => {
+          b.disabled = true;
+          if (b.dataset.o === correct) b.classList.add("right");
+          else if (b === btn) b.classList.add("wrong");
+        });
+        const last = quiz.i === quiz.items.length - 1;
+        $("after").innerHTML = `
+          <div class="why"><strong style="color:${ok ? "var(--ok)" : "var(--bad)"}">${ok ? "Correct." : "Not quite."}</strong> ${esc(item.why)}</div>
+          <div class="quiz-actions"><button class="btn" id="next">${last ? "See results" : "Next →"}</button></div>`;
+        $("next").addEventListener("click", () => { quiz.i++; last ? showResults() : showQuestion(); });
+        $("next").focus();
+      }
+
+      function showResults() {
+        const { score, items, missed } = quiz;
+        $("quiz").innerHTML = `
+          <p class="label" style="color:var(--faint);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin:0 0 6px">Result</p>
+          <p class="result">${score} / ${items.length}</p>
+          ${missed.length ? `<ul class="missed">${missed.map((m) => `<li><strong>${esc(m.q)}</strong><br />${esc(m.o[0])}</li>`).join("")}</ul>` : `<p style="color:var(--ok)">All correct. 👌</p>`}
+          <div class="quiz-actions">
+            <button class="btn" id="again">New quiz</button>
+            ${missed.length ? `<button class="btn secondary" id="retry">Retry missed (${missed.length})</button>` : ""}
+          </div>`;
+        $("again").addEventListener("click", () => startQuiz());
+        if (missed.length) $("retry").addEventListener("click", () => {
+          quiz = { items: shuffle(missed), i: 0, score: 0, missed: [] };
+          showQuestion();
+        });
+      }
+    </script>
+    <script src="../home-link.js" defer></script>
+  </body>
+</html>

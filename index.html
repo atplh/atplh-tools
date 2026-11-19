@@ -3,352 +3,468 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Calculators, simulators and study resources for the EASA ATPL(H) theory exams." />
     <link rel="icon" type="image/svg+xml" href="./atplh-tools-rotor.svg" />
     <title>ATPL(H) Tools</title>
     <style>
       :root {
-        --bg: #08111c;
-        --bg-soft: #0d1927;
-        --panel: #101e2d;
-        --panel-alt: #142638;
-        --primary: #d6a64a;
-        --primary-strong: #efc36a;
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-hover: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
         --text: #e8eef5;
-        --muted: #a6b5c5;
-        --border: #293d51;
-        --shadow: rgba(0,0,0,0.3);
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --accent-soft: rgba(239, 195, 106, 0.1);
+        --radius: 10px;
       }
 
       * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 
       body {
         margin: 0;
-        font-family: system-ui, "Segoe UI", Arial, sans-serif;
-        background: linear-gradient(180deg, #0d1927 0%, var(--bg) 420px);
+        background: var(--bg);
         color: var(--text);
-        min-height: 100vh;
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
 
-      .container {
-        max-width: 1160px;
+      a { color: inherit; text-decoration: none; }
+      a:focus-visible, input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .page {
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 36px 24px 64px;
+        padding: 40px 24px 64px;
       }
 
-      .hero {
-        text-align: center;
-        margin-bottom: 30px;
-      }
-
-      .badge {
-        display: inline-block;
-        background: rgba(214, 166, 74, 0.1);
-        color: var(--primary);
-        border: 1px solid rgba(214, 166, 74, 0.38);
-        padding: 8px 14px;
-        border-radius: 4px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
-      h1 {
-        margin: 18px 0 12px;
-        font-size: clamp(2.2rem, 5vw, 3.5rem);
-        letter-spacing: -0.04em;
-      }
-
-      .subtitle {
-        margin: 0 auto;
-        max-width: 760px;
-        color: var(--muted);
-        font-size: 1.05rem;
-        line-height: 1.6;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        align-items: stretch;
-        gap: 16px;
-        margin-top: 18px;
-      }
-
-      .card {
+      /* ---------- Header ---------- */
+      header {
         display: flex;
-        min-width: 0;
-        flex-direction: column;
-        background: linear-gradient(145deg, var(--panel) 0%, var(--panel-alt) 100%);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 8px 18px var(--shadow);
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
       }
 
-      .section-title {
-        margin: 38px 0 0;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--border);
-        font-size: 1.35rem;
-        letter-spacing: 0.02em;
+      .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        flex: 0 0 auto;
       }
 
-      .icon {
-        width: 52px;
-        height: 52px;
+      .brand h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        letter-spacing: -0.02em;
+      }
+
+      .brand p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .search {
+        position: relative;
+        margin-left: auto;
+        width: min(320px, 100%);
+      }
+
+      .search svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        width: 16px;
+        height: 16px;
+        transform: translateY(-50%);
+        color: var(--faint);
+        pointer-events: none;
+      }
+
+      .search input {
+        width: 100%;
+        padding: 10px 40px 10px 36px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .search input::placeholder { color: var(--faint); }
+
+      .search kbd {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 1px 7px;
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        color: var(--faint);
+        font: 12px/1.5 ui-monospace, Consolas, monospace;
+      }
+
+      /* ---------- Quick access ---------- */
+      .quick {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+        margin-top: 32px;
+      }
+
+      .quick a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        transition: background 0.15s, border-color 0.15s;
+      }
+
+      .quick a:hover { background: var(--surface-hover); border-color: var(--line-strong); }
+
+      .quick .glyph {
         display: grid;
         place-items: center;
+        width: 34px;
+        height: 34px;
         border-radius: 8px;
-        font-size: 1.5rem;
-        background: rgba(214, 166, 74, 0.08);
-        border: 1px solid rgba(214, 166, 74, 0.2);
-        margin-bottom: 14px;
-      }
-
-      .card h2 {
-        min-height: 1.6em;
-        margin: 0 0 8px;
-        font-size: 1.15rem;
-      }
-
-      .card p {
-        margin: 0 0 14px;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .card > p {
-        flex: 1;
-      }
-
-      .card .topics {
-        flex: 1;
-        margin: 0;
-        padding: 0;
-        color: var(--muted);
-        list-style: none;
-        line-height: 1.65;
-      }
-
-      .topics > li + li {
-        margin-top: 8px;
-      }
-
-      .topics ul {
-        margin: 4px 0 0;
-        padding-left: 16px;
-      }
-
-      .card .status {
-        flex: 1;
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      .card .tool-link {
-        display: inline-flex;
-        align-items: center;
-        align-self: flex-start;
-        max-width: 100%;
-        margin-top: auto;
-        gap: 7px;
-        padding: 7px 0 3px;
-        border-bottom: 1px solid rgba(214, 166, 74, 0.45);
-        color: var(--primary-strong);
-        font-size: 0.92rem;
-        font-weight: 600;
-        line-height: 1.4;
-        text-decoration: none;
-        transition: color 0.2s ease, border-color 0.2s ease;
-      }
-
-      .card .tool-link:hover {
-        border-color: var(--primary-strong);
-        color: var(--text);
-      }
-
-      .card .tool-link::after {
-        content: "→";
+        background: var(--accent-soft);
+        font-size: 1.05rem;
         flex: 0 0 auto;
-        transition: transform 0.2s ease;
       }
 
-      .card .tool-link:hover::after {
-        transform: translateX(3px);
+      .quick strong { display: block; font-size: 0.92rem; font-weight: 600; }
+      .quick small { display: block; color: var(--muted); font-size: 0.8rem; }
+
+      /* ---------- Layout ---------- */
+      .layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 40px;
+        margin-top: 40px;
       }
 
-      .card .topics a {
-        color: var(--primary-strong);
-        text-underline-offset: 3px;
+      /* Subject index */
+      nav.index {
+        position: sticky;
+        top: 24px;
+        align-self: start;
       }
 
-      .card .topics a:hover {
-        color: var(--text);
-      }
-
-      .reference-type {
-        display: block;
-        margin-bottom: 8px;
-        color: var(--primary);
-        font-size: 0.75rem;
+      .label {
+        margin: 0 0 10px;
+        color: var(--faint);
+        font-size: 0.72rem;
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
       }
 
-      a:focus-visible {
-        outline: 3px solid var(--primary-strong);
-        outline-offset: 3px;
+      nav.index ul { list-style: none; margin: 0; padding: 0; }
+
+      nav.index a,
+      nav.index span.item {
+        display: grid;
+        grid-template-columns: 36px 1fr auto;
+        align-items: center;
+        padding: 5px 8px;
+        border-radius: 6px;
+        font-size: 0.88rem;
       }
 
-      @media (max-width: 860px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+      nav.index a { color: var(--text); }
+      nav.index a:hover { background: var(--surface); }
+      nav.index span.item { color: var(--faint); }
+
+      nav.index .code {
+        color: var(--faint);
+        font: 12px ui-monospace, Consolas, monospace;
+      }
+
+      nav.index a .code { color: var(--accent); }
+
+      nav.index .count {
+        min-width: 20px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: var(--surface-hover);
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-align: center;
+      }
+
+      /* Subject sections */
+      section.subject + section.subject { margin-top: 32px; }
+
+      .subject-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .subject-head .code {
+        color: var(--accent);
+        font: 600 0.82rem ui-monospace, Consolas, monospace;
+      }
+
+      .subject-head h2 {
+        margin: 0;
+        font-size: 1.08rem;
+        font-weight: 600;
+      }
+
+      .tools { list-style: none; margin: 0; padding: 0; }
+
+      .tool {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 16px;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 10px;
+        margin: 0 -10px;
+        border-bottom: 1px solid var(--line);
+        border-radius: 6px;
+        transition: background 0.15s;
+      }
+
+      .tool:hover { background: var(--surface); }
+      .tool:hover .arrow { color: var(--accent); transform: translateX(2px); }
+
+      .tool-title { font-weight: 600; }
+
+      .tool-topic {
+        margin-left: 8px;
+        color: var(--faint);
+        font-size: 0.82rem;
+        font-weight: 400;
+      }
+
+      .tool-desc {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .tag {
+        padding: 2px 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        white-space: nowrap;
+      }
+
+      .arrow {
+        color: var(--faint);
+        transition: color 0.15s, transform 0.15s;
+      }
+
+      .empty {
+        display: none;
+        padding: 40px 0;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      footer {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 0.82rem;
+      }
+
+      /* ---------- Responsive ---------- */
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+        nav.index { position: static; }
+        nav.index ul { display: flex; flex-wrap: wrap; gap: 6px; }
+        nav.index li.soon { display: none; }
+        nav.index a {
+          display: inline-flex;
+          gap: 6px;
+          padding: 5px 10px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
         }
       }
 
       @media (max-width: 560px) {
-        .container {
-          padding: 28px 16px 48px;
-        }
-
-        .grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-
-        .card {
-          min-height: 0;
-        }
-      }
-
-      footer {
-        text-align: center;
-        color: var(--muted);
-        margin-top: 30px;
-        font-size: 0.95rem;
+        .page { padding: 24px 16px 48px; }
+        .search { width: 100%; margin-left: 0; }
+        .search kbd { display: none; }
+        .quick { grid-template-columns: minmax(0, 1fr); }
+        .tool { grid-template-columns: minmax(0, 1fr) 16px; }
+        .tool .tag { display: none; }
+        .tool-topic { display: block; margin-left: 0; }
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <div class="hero">
-        <span class="badge">ATPL(H) Tools</span>
-        <h1>ATPL(H) Tools</h1>
-        <p class="subtitle">
-        A collection of calculators, simulators and study resources for ATPL(H).
-        </p>
+    <div class="page">
+      <header>
+        <img class="logo" src="./atplh-tools-rotor.svg" alt="" />
+        <div class="brand">
+          <h1>ATPL(H) Tools</h1>
+          <p>Calculators, simulators and study resources for the EASA ATPL(H) theory exams.</p>
+        </div>
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="Search tools…" autocomplete="off" aria-label="Search tools" />
+          <kbd>/</kbd>
+        </label>
+      </header>
+
+      <div class="quick" id="quick" aria-label="Quick access"></div>
+
+      <div class="layout">
+        <nav class="index" aria-label="Subjects">
+          <p class="label">Subjects</p>
+          <ul id="index"></ul>
+        </nav>
+
+        <main>
+          <div id="subjects"></div>
+          <p class="empty" id="empty">No tools match your search.</p>
+        </main>
       </div>
 
-      <h2 class="section-title">General tools</h2>
-      <div class="grid">
-        <div class="card">
-          <div class="icon" aria-hidden="true">🧮</div>
-          <h2>SENASA calculator</h2>
-          <p>Quick calculations for exercises and checks.</p>
-          <a class="tool-link" href="./tools/general/calculadora_senasa.html">Open calculator</a>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">📏</div>
-          <h2>CRP5</h2>
-          <p>CRP5 calculator.</p>
-          <a class="tool-link" href="https://crp5.florian-scheuner.de/">Open CRP5</a>
-        </div>
-      </div>
-
-      <h2 class="section-title">Subjects</h2>
-      <div class="grid">
-        <div class="card">
-          <div class="icon" aria-hidden="true">🧭</div>
-          <h2>Gnav</h2>
-          <p class="status">Tools coming soon.</p>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">🗺️</div>
-          <h2>Rnav</h2>
-          <p>Radio-navigation aids: NDB/ADF, VOR, DME, ILS, marker beacons and MLS.</p>
-          <a class="tool-link" href="./tools/rnav/radionavigation-aids.html">Radio-navigation guide</a>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">⚙️</div>
-          <h2>AGK</h2>
-          <ul class="topics">
-            <li><strong>Engines</strong> — Engine simulators</li>
-              <ul>
-                  <li><a href="./tools/agk/engines/float-carburettor.html">Float carburettor</a></li>
-                </ul>
-            <li><strong>Instruments</strong> — Instruments 1 and 2 coming soon</li>
-            <li><strong>Electrics</strong> — AC simulator and logic
-              <ul>
-                <li><a href="./tools/agk/electrics/three-phase-induction.html">Three-phase induction motor</a></li>
-                <li><a href="./tools/agk/electrics/logic-gates.html">Logic gates</a></li>
-              </ul>
-            </li>
-            <li><strong>Systems</strong>
-              <ul>
-                <li><a href="./tools/agk/systems/helicopter-system-map.html">Helicopter system map</a></li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">🌦️</div>
-          <h2>Meteo</h2>
-          <ul class="topics">
-            <li><a href="./tools/meteo/altimetry-simulator.html">Altimetry simulator</a></li>
-            <li><a href="./tools/meteo/meteo-fronts.html">Front simulator</a></li>
-            <li><a href="./tools/meteo/wind-simulator.html">Wind simulator</a></li>
-          </ul>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">📡</div>
-          <h2>Comms</h2>
-          <p class="status">Tools coming soon.</p>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">🚁</div>
-          <h2>Principles of Flight</h2>
-          <p>Understand how rotor hinge offset affects helicopter flight.</p>
-          <a class="tool-link" href="./tools/principles-of-flight/hinge-offset.html">Hinge offset explainer</a>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">📂</div>
-          <h2>Flight Planning</h2>
-          <p>File a flight plan.</p>
-          <a class="tool-link" href="./tools/flight-planning/icao-flight-plan.html">ICAO flight plan guide</a>
-        </div>
-      </div>
-
-      <h2 class="section-title">Reference links</h2>
-      <div class="grid">
-        <div class="card">
-          <div class="icon" aria-hidden="true">🏛️</div>
-          <span class="reference-type">Official · Spain</span>
-          <h2>AESA question banks</h2>
-          <p>Official Spanish theory exam question banks for PPL, LAPL, SPL and BPL.</p>
-          <a class="tool-link" href="https://www.seguridadaerea.gob.es/en/ambitos/formacion-y-examenes/examenes-de-piloto/examenes-teoricos/bancos-de-preguntas" target="_blank" rel="noopener noreferrer">Visit AESA</a>
-        </div>
-
-        <div class="card">
-          <div class="icon" aria-hidden="true">🇪🇺</div>
-          <span class="reference-type">Official · Europe</span>
-          <h2>EASA European Central Question Bank</h2>
-          <p>Background on the ECQB used across EASA member states for CPL and ATPL theory exams.</p>
-          <a class="tool-link" href="https://www.easa.europa.eu/en/domains/aircrew-and-medical/european-central-question-bank-ecqb" target="_blank" rel="noopener noreferrer">Visit EASA</a>
-        </div>
-      </div>
-    </div>
       <footer>
-        ATPL(H) Tools · Built to grow with every new tool. Always verify current official aeronautical information before flight.
+        Study aids only. Always verify current official aeronautical information before flight.
       </footer>
+    </div>
+
+    <script>
+      /* ------------------------------------------------------------------
+         To add a tool: append one entry to TOOLS with the subject code.
+         Subjects with no tools appear greyed out in the index.
+         ------------------------------------------------------------------ */
+      const SUBJECTS = [
+        // { code: "010", name: "Air Law" },
+        { code: "021", name: "Aircraft General Knowledge" },
+        { code: "022", name: "Instrumentation" },
+        // { code: "031", name: "Mass & Balance" },
+        { code: "033", name: "Flight Planning" },
+        // { code: "034", name: "Performance" },
+        // { code: "040", name: "Human Performance" },
+        { code: "050", name: "Meteorology" },
+        { code: "061", name: "General Navigation" },
+        { code: "062", name: "Radio Navigation" },
+        // { code: "070", name: "Operational Procedures" },
+        { code: "082", name: "Principles of Flight" },
+        { code: "090", name: "Communications" },
+      ];
+
+      const TOOLS = [
+        // 021 AGK
+        { subject: "021", topic: "Systems", title: "Helicopter system map", desc: "Avionics and flight-instrument interconnections.", type: "Interactive", href: "./tools/agk/systems/helicopter-system-map.html" },
+        { subject: "021", topic: "Engines", title: "Float carburettor", desc: "Venturi, float chamber and cockpit controls, step by step.", type: "Simulator", href: "./tools/agk/engines/float-carburettor.html" },
+        { subject: "021", topic: "Electrics", title: "Three-phase induction motor", desc: "How an AC induction motor works.", type: "Simulator", href: "./tools/agk/electrics/three-phase-induction.html" },
+        { subject: "021", topic: "Electrics", title: "Logic gates", desc: "Practice quiz on gates and truth tables.", type: "Quiz", href: "./tools/agk/electrics/logic-gates.html" },
+        // 022 Instrumentation
+        { subject: "022", topic: "Pitot-static", title: "Pitot-static failures", desc: "Block the pitot, drain or static ports and watch the ASI, altimeter and VSI.", type: "Simulator", href: "./tools/instruments/pitot-static.html" },
+        // 033 Flight planning
+        { subject: "033", title: "ICAO flight plan", desc: "Field-by-field guide to filling in an ICAO flight plan.", type: "Guide", href: "./tools/flight-planning/icao-flight-plan.html" },
+        // 050 Meteo
+        { subject: "050", title: "Altimetry simulator", desc: "Altimeter settings and readings for helicopter operations.", type: "Simulator", href: "./tools/meteo/altimetry-simulator.html" },
+        { subject: "050", title: "Front simulator", desc: "Frontal systems and their associated weather.", type: "Simulator", href: "./tools/meteo/meteo-fronts.html" },
+        { subject: "050", title: "Wind simulator", desc: "Geostrophic wind: when it veers, backs, strengthens or weakens.", type: "Simulator", href: "./tools/meteo/wind-simulator.html" },
+        // 061 General navigation
+        { subject: "061", title: "Wind triangle", desc: "Heading, groundspeed and drift for a track, or find the wind. Shows the working.", type: "Calculator", href: "./tools/gnav/wind-triangle.html" },
+        // 062 Radio nav
+        { subject: "062", title: "VOR, ADF and RMI", desc: "Move the helicopter and read the RMI, ADF and VOR indicator. Includes practice questions.", type: "Simulator", href: "./tools/rnav/vor-adf-rmi.html" },
+        { subject: "062", title: "Radio-navigation aids", desc: "NDB/ADF, VOR, DME, ILS, marker beacons and MLS.", type: "Guide", href: "./tools/rnav/radionavigation-aids.html" },
+        // 082 POF
+        // 090 Communications
+        { subject: "090", title: "Comms reference", desc: "Squawk codes, distress, radio failure, light signals, read-backs and standard words. Includes a quiz.", type: "Reference", href: "./tools/comms/comms-reference.html" },
+        { subject: "082", title: "Hinge offset explainer", desc: "How rotor hinge offset affects helicopter flight.", type: "Explainer", href: "./tools/principles-of-flight/hinge-offset.html" },
+      ];
+
+      const QUICK = [
+        { glyph: "🧮", title: "SENASA calculator", sub: "Exam calculator", href: "./tools/general/calculadora_senasa.html" },
+        { glyph: "📏", title: "CRP-5", sub: "Flight computer ↗", href: "https://crp5.florian-scheuner.de/", external: true },
+        // Hidden for now — uncomment to show again
+        // { glyph: "🏛️", title: "AESA question banks", sub: "Official · Spain ↗", href: "https://www.seguridadaerea.gob.es/en/ambitos/formacion-y-examenes/examenes-de-piloto/examenes-teoricos/bancos-de-preguntas", external: true },
+        // { glyph: "🇪🇺", title: "EASA ECQB", sub: "Official · Europe ↗", href: "https://www.easa.europa.eu/en/domains/aircrew-and-medical/european-central-question-bank-ecqb", external: true },
+      ];
+
+      const esc = (s = "") => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const ext = (item) => (item.external ? ' target="_blank" rel="noopener noreferrer"' : "");
+      const byCode = (code) => TOOLS.filter((t) => t.subject === code);
+
+      document.getElementById("quick").innerHTML = QUICK.map((q) => `
+        <a href="${q.href}"${ext(q)}>
+          <span class="glyph" aria-hidden="true">${q.glyph}</span>
+          <span><strong>${esc(q.title)}</strong><small>${esc(q.sub)}</small></span>
+        </a>`).join("");
+
+      document.getElementById("index").innerHTML = SUBJECTS.map((s) => {
+        const n = byCode(s.code).length;
+        return n
+          ? `<li><a href="#s-${s.code}"><span class="code">${s.code}</span><span>${esc(s.name)}</span><span class="count">${n}</span></a></li>`
+          : `<li class="soon"><span class="item" title="Coming soon"><span class="code">${s.code}</span><span>${esc(s.name)}</span></span></li>`;
+      }).join("");
+
+      const container = document.getElementById("subjects");
+      container.innerHTML = SUBJECTS.filter((s) => byCode(s.code).length).map((s) => `
+        <section class="subject" id="s-${s.code}">
+          <div class="subject-head"><span class="code">${s.code}</span><h2>${esc(s.name)}</h2></div>
+          <ul class="tools">
+            ${byCode(s.code).map((t) => `
+              <li><a class="tool" href="${t.href}"${ext(t)} data-search="${esc([t.title, t.desc, t.topic, t.type, s.name, s.code].join(" ").toLowerCase())}">
+                <span>
+                  <span class="tool-title">${esc(t.title)}</span>${t.topic ? `<span class="tool-topic">${esc(t.topic)}</span>` : ""}
+                  <span class="tool-desc">${esc(t.desc)}</span>
+                </span>
+                <span class="tag">${esc(t.type)}</span>
+                <span class="arrow" aria-hidden="true">→</span>
+              </a></li>`).join("")}
+          </ul>
+        </section>`).join("");
+
+      // Search
+      const input = document.getElementById("q");
+      const empty = document.getElementById("empty");
+      input.addEventListener("input", () => {
+        const terms = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        let visible = 0;
+        container.querySelectorAll("section.subject").forEach((sec) => {
+          let shown = 0;
+          sec.querySelectorAll("a.tool").forEach((a) => {
+            const match = terms.every((term) => a.dataset.search.includes(term));
+            a.parentElement.hidden = !match;
+            shown += match;
+          });
+          sec.hidden = !shown;
+          visible += shown;
+        });
+        empty.style.display = visible ? "none" : "block";
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement !== input) {
+          e.preventDefault();
+          input.focus();
+        } else if (e.key === "Escape" && document.activeElement === input) {
+          input.value = "";
+          input.dispatchEvent(new Event("input"));
+          input.blur();
+        }
+      });
+    </script>
   </body>
 </html>

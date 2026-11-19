@@ -4,7 +4,10 @@ ATPL(H) study tools are stored under `tools/`, grouped by subject:
 
 - `tools/general/`: General calculator
 - `tools/flight-planning/`: ICAO flight-plan interactive guide
-- `tools/rnav/`: Radionavigation aids
+- `tools/gnav/`: Wind triangle
+- `tools/instruments/`: Pitot-static failures simulator
+- `tools/comms/`: Comms reference and quiz
+- `tools/rnav/`: Radionavigation aids, VOR/ADF/RMI simulator
 - `tools/agk/electrics/`: Three-phase induction motor and logic gates
 - `tools/agk/systems/`: Helicopter system map
 - `tools/meteo/`: Front simulator

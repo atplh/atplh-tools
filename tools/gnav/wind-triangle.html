@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../../atplh-tools-rotor.svg" />
+    <title>Wind triangle</title>
+    <style>
+      :root {
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-2: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
+        --text: #e8eef5;
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --air: #efc36a;
+        --wind: #7fb8e6;
+        --ground: #7fd6a0;
+        --bad: #f08a7a;
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font: 600 0.78rem ui-monospace, Consolas, monospace;
+        letter-spacing: 0.06em;
+      }
+
+      h1 { margin: 4px 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+      .lead { margin: 0; color: var(--muted); max-width: 680px; }
+
+      .tabs {
+        display: inline-flex;
+        gap: 4px;
+        margin: 28px 0 20px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .tabs button {
+        padding: 7px 14px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 18px;
+      }
+
+      .label {
+        margin: 0 0 12px;
+        color: var(--faint);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .field { display: grid; gap: 4px; margin-bottom: 12px; }
+      .field span { color: var(--muted); font-size: 0.84rem; }
+      .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+      input, select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px ui-monospace, Consolas, monospace;
+      }
+
+      input:focus-visible, select:focus-visible, button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .hint { margin: 4px 0 0; color: var(--faint); font-size: 0.8rem; }
+
+      .results {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .stat small { display: block; color: var(--muted); font-size: 0.78rem; }
+      .stat strong { display: block; margin-top: 2px; font: 600 1.35rem ui-monospace, Consolas, monospace; }
+      .stat em { display: block; color: var(--faint); font-size: 0.76rem; font-style: normal; }
+
+      .main-col { display: grid; gap: 16px; min-width: 0; }
+
+      .diagram-wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        gap: 16px;
+        align-items: center;
+      }
+
+      svg.diagram { width: 100%; height: auto; display: block; }
+
+      .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 0.88rem; }
+      .legend li { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 8px; }
+      .legend i { height: 3px; border-radius: 2px; }
+      .legend b { font-weight: 600; }
+      .legend span { color: var(--muted); }
+
+      .steps { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+      .steps li + li { margin-top: 6px; }
+      .steps code { color: var(--text); font: 0.88rem ui-monospace, Consolas, monospace; }
+
+      .error {
+        display: none;
+        padding: 12px 14px;
+        border: 1px solid rgba(240, 138, 122, 0.4);
+        border-radius: var(--radius);
+        background: rgba(240, 138, 122, 0.08);
+        color: var(--bad);
+        font-size: 0.9rem;
+      }
+
+      .tips { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.88rem; }
+      .tips li + li { margin-top: 6px; }
+      .tips strong { color: var(--text); font-weight: 600; }
+
+      [hidden] { display: none !important; }
+
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .diagram-wrap { grid-template-columns: minmax(0, 1fr); }
+      }
+
+      @media (max-width: 560px) {
+        .page { padding: 24px 16px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">061 · GENERAL NAVIGATION</p>
+      <h1>Wind triangle</h1>
+      <p class="lead">Solve the triangle of velocities: heading and groundspeed for a desired track, or the wind from what you actually flew. Directions in °True, speeds in knots.</p>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-mode="hdg">Find heading &amp; GS</button>
+        <button role="tab" aria-selected="false" data-mode="wind">Find wind</button>
+      </div>
+
+      <div class="layout">
+        <form class="panel" id="form" autocomplete="off" onsubmit="return false">
+          <p class="label">Inputs</p>
+
+          <div data-for="hdg">
+            <label class="field"><span>Required track (°T)</span><input id="trk" type="number" min="0" max="360" value="090" /></label>
+            <label class="field"><span>TAS (kt)</span><input id="tas" type="number" min="1" value="110" /></label>
+            <div class="field-row">
+              <label class="field"><span>Wind from (°T)</span><input id="wd" type="number" min="0" max="360" value="030" /></label>
+              <label class="field"><span>Wind speed (kt)</span><input id="ws" type="number" min="0" value="25" /></label>
+            </div>
+          </div>
+
+          <div data-for="wind" hidden>
+            <div class="field-row">
+              <label class="field"><span>Heading (°T)</span><input id="w-hdg" type="number" min="0" max="360" value="080" /></label>
+              <label class="field"><span>TAS (kt)</span><input id="w-tas" type="number" min="1" value="110" /></label>
+            </div>
+            <div class="field-row">
+              <label class="field"><span>Track (°T)</span><input id="w-trk" type="number" min="0" max="360" value="090" /></label>
+              <label class="field"><span>GS (kt)</span><input id="w-gs" type="number" min="0" value="96" /></label>
+            </div>
+          </div>
+
+          <p class="label" style="margin-top: 18px">Optional</p>
+          <div class="field-row">
+            <label class="field"><span>Variation (°)</span><input id="var" type="number" min="0" max="180" value="1" /></label>
+            <label class="field"><span>&nbsp;</span>
+              <select id="var-dir"><option value="W">West</option><option value="E">East</option></select>
+            </label>
+          </div>
+          <label class="field" data-for="hdg"><span>Leg distance (NM)</span><input id="dist" type="number" min="0" value="45" /></label>
+          <p class="hint">Variation west, magnetic best · variation east, magnetic least.</p>
+        </form>
+
+        <div class="main-col">
+          <div class="error" id="error"></div>
+          <div class="results" id="results"></div>
+
+          <div class="panel diagram-wrap">
+            <svg class="diagram" id="diagram" viewBox="0 0 400 320" role="img" aria-label="Triangle of velocities"></svg>
+            <ul class="legend">
+              <li><i style="background: var(--air)"></i><div><b>Air vector</b><br /><span>Heading / TAS</span></div></li>
+              <li><i style="background: var(--wind)"></i><div><b>Wind vector</b><br /><span>Wind direction / speed</span></div></li>
+              <li><i style="background: var(--ground)"></i><div><b>Ground vector</b><br /><span>Track / GS</span></div></li>
+            </ul>
+          </div>
+
+          <div class="panel">
+            <p class="label">Working</p>
+            <ol class="steps" id="steps"></ol>
+          </div>
+
+          <div class="panel">
+            <p class="label">Exam tips</p>
+            <ul class="tips">
+              <li><strong>Drift is from heading to track.</strong> Wind from the left gives right drift, so you head left of the track (into the wind).</li>
+              <li><strong>Max drift ≈ WS × 60 / TAS.</strong> Multiply it by the sine of the wind angle (30° → ½, 45° → 0.7, 60° → 0.9).</li>
+              <li><strong>Wind direction is where it blows <em>from</em></strong> (TAF/METAR in °T, ATIS/tower in °M). The wind vector points downwind.</li>
+              <li>The wind changes GS by up to ±WS. A pure crosswind still costs you a little groundspeed (TAS × cos WCA).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const rad = (d) => (d * Math.PI) / 180;
+      const deg = (r) => (r * 180) / Math.PI;
+      const norm = (d) => ((d % 360) + 360) % 360;
+      const signed = (d) => { const n = norm(d); return n > 180 ? n - 360 : n; };
+      const dir3 = (d) => { const n = Math.round(norm(d)) % 360; return String(n === 0 ? 360 : n).padStart(3, "0"); };
+      const num = (id) => parseFloat($(id).value);
+      const fmt = (v, dp = 0) => (Math.abs(v) < 0.05 && dp ? 0 : v).toFixed(dp);
+      const side = (v) => (Math.abs(v) < 0.5 ? "" : v > 0 ? " R" : " L");
+
+      let mode = "hdg";
+
+      document.querySelectorAll(".tabs button").forEach((b) =>
+        b.addEventListener("click", () => {
+          mode = b.dataset.mode;
+          document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
+          document.querySelectorAll("[data-for]").forEach((el) => (el.hidden = el.dataset.for !== mode));
+          update();
+        })
+      );
+
+      $("form").addEventListener("input", update);
+
+      function variation() {
+        const v = num("var") || 0;
+        return $("var-dir").value === "W" ? v : -v; // add to true to get magnetic
+      }
+
+      function stat(label, value, note = "") {
+        return `<div class="stat"><small>${label}</small><strong>${value}</strong>${note ? `<em>${note}</em>` : ""}</div>`;
+      }
+
+      function update() {
+        const err = $("error");
+        err.style.display = "none";
+
+        let hdg, tas, trk, gs, wd, ws;
+
+        if (mode === "hdg") {
+          trk = num("trk"); tas = num("tas"); wd = num("wd"); ws = num("ws");
+          if ([trk, tas, wd, ws].some(Number.isNaN) || tas <= 0 || ws < 0) return showError("Enter track, TAS and wind.");
+
+          const wa = signed(wd - trk);              // wind angle relative to track (+ = from the right)
+          const xw = ws * Math.sin(rad(wa));        // crosswind (+ = from the right)
+          const hw = ws * Math.cos(rad(wa));        // headwind (+) / tailwind (-)
+          if (Math.abs(xw) > tas) return showError("Crosswind component is larger than TAS: the track cannot be held.");
+
+          const wca = deg(Math.asin(xw / tas));     // wind correction angle (+ = into a right wind)
+          hdg = norm(trk + wca);
+          gs = tas * Math.cos(rad(wca)) - hw;
+          if (gs <= 0) return showError("Headwind is stronger than TAS: groundspeed would be zero or negative.");
+
+          const drift = -wca;
+          const vari = variation();
+          const dist = num("dist");
+          const time = dist > 0 ? (dist / gs) * 60 : NaN;
+          const estWca = (xw * 60) / tas;
+
+          $("results").innerHTML =
+            stat("True heading", dir3(hdg) + "°", `Magnetic ${dir3(hdg + vari)}°`) +
+            stat("Groundspeed", fmt(gs) + " kt", `${hw >= 0 ? "Headwind" : "Tailwind"} ${fmt(Math.abs(hw))} kt`) +
+            stat("Drift", fmt(Math.abs(drift)) + "°" + side(drift), `WCA ${fmt(Math.abs(wca))}°${side(wca)}`) +
+            stat("Time", Number.isNaN(time) ? "—" : formatTime(time), Number.isNaN(time) ? "Add a distance" : `${fmt(dist)} NM`);
+
+          $("steps").innerHTML = [
+            `Wind angle = wind − track = <code>${dir3(wd)} − ${dir3(trk)} = ${fmt(wa)}°</code> (${wa >= 0 ? "from the right" : "from the left"})`,
+            `Crosswind = WS × sin(wind angle) = <code>${fmt(ws)} × sin ${fmt(Math.abs(wa))}° = ${fmt(Math.abs(xw), 1)} kt</code>; ${hw >= 0 ? "headwind" : "tailwind"} = WS × cos = <code>${fmt(Math.abs(hw), 1)} kt</code>`,
+            `WCA = asin(crosswind / TAS) = <code>asin(${fmt(Math.abs(xw), 1)} / ${fmt(tas)}) = ${fmt(Math.abs(wca), 1)}°</code> · mental estimate: <code>${fmt(Math.abs(xw), 1)} × 60 / ${fmt(tas)} ≈ ${fmt(Math.abs(estWca), 1)}°</code>`,
+            `True heading = track ${wca >= 0 ? "+" : "−"} WCA = <code>${dir3(trk)} ${wca >= 0 ? "+" : "−"} ${fmt(Math.abs(wca), 1)} = ${dir3(hdg)}°T</code>; magnetic = <code>${dir3(hdg)} ${vari >= 0 ? "+" : "−"} ${fmt(Math.abs(vari))} = ${dir3(hdg + vari)}°M</code>`,
+            `GS = TAS × cos(WCA) − headwind = <code>${fmt(tas)} × cos ${fmt(Math.abs(wca), 1)}° ${hw >= 0 ? "−" : "+"} ${fmt(Math.abs(hw), 1)} = ${fmt(gs)} kt</code>`,
+          ].map((s) => `<li>${s}</li>`).join("");
+        } else {
+          hdg = num("w-hdg"); tas = num("w-tas"); trk = num("w-trk"); gs = num("w-gs");
+          if ([hdg, tas, trk, gs].some(Number.isNaN) || tas <= 0 || gs < 0) return showError("Enter heading, TAS, track and GS.");
+
+          const ax = tas * Math.sin(rad(hdg)), ay = tas * Math.cos(rad(hdg));
+          const gx = gs * Math.sin(rad(trk)), gy = gs * Math.cos(rad(trk));
+          const wx = gx - ax, wy = gy - ay;          // wind vector (blowing towards)
+          ws = Math.hypot(wx, wy);
+          wd = norm(deg(Math.atan2(wx, wy)) + 180); // from
+          const drift = signed(trk - hdg);
+          const vari = variation();
+
+          $("results").innerHTML =
+            stat("Wind from", ws < 0.5 ? "Calm" : dir3(wd) + "°T", ws < 0.5 ? "" : `${dir3(wd + vari)}°M`) +
+            stat("Wind speed", fmt(ws) + " kt") +
+            stat("Drift", fmt(Math.abs(drift)) + "°" + side(drift), "Heading → track") +
+            stat("GS − TAS", (gs - tas >= 0 ? "+" : "−") + fmt(Math.abs(gs - tas)) + " kt", gs >= tas ? "Tailwind component" : "Headwind component");
+
+          $("steps").innerHTML = [
+            `Air vector: <code>${dir3(hdg)}°T / ${fmt(tas)} kt</code>. Ground vector: <code>${dir3(trk)}°T / ${fmt(gs)} kt</code>.`,
+            `Wind vector = ground − air. It closes the triangle from the tip of the air vector to the tip of the ground vector.`,
+            `Components (E, N): <code>(${fmt(wx, 1)}, ${fmt(wy, 1)}) kt</code> → speed <code>${fmt(ws, 1)} kt</code>, blowing towards <code>${dir3(wd + 180)}°</code>.`,
+            `Wind is reported as where it blows <em>from</em>: <code>${dir3(wd + 180)} ± 180 = ${dir3(wd)}°T</code>.`,
+          ].map((s) => `<li>${s}</li>`).join("");
+        }
+
+        draw(hdg, tas, trk, gs, wd, ws);
+      }
+
+      function formatTime(min) {
+        const m = Math.round(min);
+        return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
+      }
+
+      function showError(msg) {
+        const err = $("error");
+        err.textContent = msg;
+        err.style.display = "block";
+        $("results").innerHTML = "";
+        $("steps").innerHTML = "";
+        $("diagram").innerHTML = "";
+      }
+
+      function draw(hdg, tas, trk, gs, wd, ws) {
+        const W = 400, H = 320, pad = 46;
+        const O = [0, 0];
+        const A = [tas * Math.sin(rad(hdg)), tas * Math.cos(rad(hdg))];
+        const G = [gs * Math.sin(rad(trk)), gs * Math.cos(rad(trk))];
+        const pts = [O, A, G];
+        const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+        const s = Math.min((W - 2 * pad) / Math.max(maxX - minX, 1), (H - 2 * pad) / Math.max(maxY - minY, 1));
+        const ox = (W - (maxX - minX) * s) / 2 - minX * s;
+        const oy = (H - (maxY - minY) * s) / 2 + maxY * s;
+        const P = (p) => [ox + p[0] * s, oy - p[1] * s];
+        const [o, a, g] = pts.map(P);
+
+        const arrow = (p, q, color, id, label, dash = "") => {
+          const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+          const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+          // label offset perpendicular to the vector, away from the triangle centroid
+          let nx = -(q[1] - p[1]) / len, ny = (q[0] - p[0]) / len;
+          const cx = (o[0] + a[0] + g[0]) / 3, cy = (o[1] + a[1] + g[1]) / 3;
+          if ((mx - cx) * nx + (my - cy) * ny < 0) { nx = -nx; ny = -ny; }
+          return `
+            <defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="${color}"/></marker></defs>
+            ${len > 4 ? `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${color}" stroke-width="3" stroke-linecap="round" ${dash} marker-end="url(#${id})"/>` : ""}
+            <text x="${mx + nx * 16}" y="${my + ny * 16}" fill="${color}" font-size="12" font-family="ui-monospace, Consolas, monospace" text-anchor="middle" dominant-baseline="middle">${label}</text>`;
+        };
+
+        $("diagram").innerHTML = `
+          <g transform="translate(26 30)" stroke="var(--faint)" fill="var(--faint)" font-size="11" font-family="system-ui">
+            <line x1="0" y1="14" x2="0" y2="-10" stroke-width="1.5"/><path d="M-4 -6 0 -14 4 -6z" stroke="none"/>
+            <text x="0" y="28" text-anchor="middle" stroke="none">N</text>
+          </g>
+          ${arrow(o, a, "var(--air)", "m-air", `${dir3(hdg)}° / ${fmt(tas)}`)}
+          ${arrow(a, g, "var(--wind)", "m-wind", ws < 0.5 ? "calm" : `${dir3(wd)}° / ${fmt(ws)}`)}
+          ${arrow(o, g, "var(--ground)", "m-gnd", `${dir3(trk)}° / ${fmt(gs)}`)}
+          <circle cx="${o[0]}" cy="${o[1]}" r="4" fill="var(--text)"/>`;
+      }
+
+      update();
+    </script>
+    <script src="../home-link.js" defer></script>
+  </body>
+</html>
