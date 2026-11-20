@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../../atplh-tools-rotor.svg" />
+    <title>METAR &amp; TAF decoder</title>
+    <style>
+      :root {
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-2: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
+        --text: #e8eef5;
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --good: #7fd6a0;
+        --bad: #f08a7a;
+        --radius: 10px;
+
+        --c-header: #8fa1b4;
+        --c-time: #b4a7f5;
+        --c-wind: #7fb8e6;
+        --c-vis: #7fd6a0;
+        --c-wx: #f0a35e;
+        --c-cloud: #c9d6e3;
+        --c-temp: #f08a7a;
+        --c-press: #efc36a;
+        --c-trend: #e48fd0;
+        --c-other: #6f8296;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font: 600 0.78rem ui-monospace, Consolas, monospace;
+        letter-spacing: 0.06em;
+      }
+
+      h1 { margin: 4px 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+      h2 { margin: 0 0 10px; font-size: 1.05rem; }
+      .lead { margin: 0; color: var(--muted); max-width: 720px; }
+
+      .tabs {
+        display: inline-flex;
+        gap: 4px;
+        margin: 28px 0 20px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .tabs button {
+        padding: 7px 14px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 18px;
+      }
+
+      .label {
+        margin: 0 0 10px;
+        color: var(--faint);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 92px;
+        padding: 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.5 ui-monospace, Consolas, monospace;
+        resize: vertical;
+        text-transform: uppercase;
+      }
+
+      textarea:focus-visible, button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+      .examples span { color: var(--faint); font-size: 0.8rem; margin-right: 4px; }
+
+      button.chip-btn, .btn {
+        padding: 5px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text);
+        font: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+
+      button.chip-btn:hover, .btn:hover { border-color: var(--accent); }
+
+      .btn { border-radius: 8px; padding: 8px 14px; font-size: 0.88rem; }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a1407; font-weight: 600; }
+
+      .stack { display: grid; gap: 16px; }
+
+      .strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        font: 600 15px ui-monospace, Consolas, monospace;
+      }
+
+      .tok {
+        padding: 3px 8px;
+        border: 1px solid;
+        border-radius: 6px;
+        cursor: default;
+        transition: background 0.12s;
+      }
+
+      .tok.hl, .tok:hover { background: rgba(255, 255, 255, 0.1); }
+      .tok.unknown { border-style: dashed; }
+
+      .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; color: var(--muted); font-size: 0.78rem; }
+      .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+
+      .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+      .stat {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        min-width: 0;
+      }
+
+      .stat small { display: block; color: var(--muted); font-size: 0.76rem; }
+      .stat strong { display: block; margin-top: 2px; font-size: 1.02rem; font-weight: 600; }
+      .stat em { display: block; color: var(--faint); font-size: 0.76rem; font-style: normal; }
+
+      .section h3 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        flex-wrap: wrap;
+      }
+
+      .section h3 small { color: var(--muted); font-weight: 400; font-size: 0.84rem; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+      tr:first-child td { border-top: 0; }
+      td.code { width: 1%; white-space: nowrap; font: 600 0.9rem ui-monospace, Consolas, monospace; }
+      td.code span { padding: 1px 6px; border-left: 3px solid; }
+      td .note { display: block; color: var(--faint); font-size: 0.8rem; margin-top: 2px; }
+      tr.hl td { background: rgba(239, 195, 106, 0.07); }
+
+      .empty { color: var(--faint); font-size: 0.9rem; margin: 0; }
+
+      /* Practice */
+      .quiz-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+      .score { color: var(--muted); font-size: 0.88rem; }
+      .score b { color: var(--text); }
+
+      .report {
+        padding: 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--bg);
+        font: 600 15px/1.6 ui-monospace, Consolas, monospace;
+        word-break: break-word;
+      }
+
+      .question { margin: 16px 0 10px; font-size: 1rem; }
+      .question code { font: 600 0.95rem ui-monospace, Consolas, monospace; color: var(--accent); }
+
+      .options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+      .options button {
+        padding: 10px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text);
+        font: inherit;
+        font-size: 0.9rem;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .options button:hover:not(:disabled) { border-color: var(--accent); }
+      .options button:disabled { cursor: default; }
+      .options button.right { border-color: var(--good); background: rgba(127, 214, 160, 0.12); }
+      .options button.wrong { border-color: var(--bad); background: rgba(240, 138, 122, 0.12); }
+
+      .explain { margin: 12px 0 0; color: var(--muted); font-size: 0.88rem; }
+
+      .ref { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .ref .panel { padding: 14px; font-size: 0.86rem; color: var(--muted); }
+      .ref h3 { margin: 0 0 8px; font-size: 0.92rem; color: var(--text); }
+      .ref dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
+      .ref dt { font: 600 0.84rem ui-monospace, Consolas, monospace; color: var(--text); }
+      .ref dd { margin: 0; }
+
+      [hidden] { display: none !important; }
+
+      @media (max-width: 860px) {
+        .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .ref { grid-template-columns: minmax(0, 1fr); }
+      }
+
+      @media (max-width: 560px) {
+        .page { padding: 24px 16px 48px; }
+        .options { grid-template-columns: minmax(0, 1fr); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">050 · METEOROLOGY</p>
+      <h1>METAR &amp; TAF decoder</h1>
+      <p class="lead">Paste a METAR, SPECI or TAF and every group is explained in plain English, colour-coded. Practice mode generates random METARs and asks exam-style questions.</p>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="decode">Decode</button>
+        <button role="tab" aria-selected="false" data-tab="practice">Practice</button>
+        <button role="tab" aria-selected="false" data-tab="ref">Quick reference</button>
+      </div>
+
+      <!-- Decode -->
+      <div class="stack" data-pane="decode">
+        <section class="panel">
+          <p class="label">Report</p>
+          <textarea id="input" spellcheck="false" aria-label="METAR or TAF text"></textarea>
+          <div class="examples" id="examples"><span>Examples:</span></div>
+        </section>
+
+        <section class="panel">
+          <p class="label">Groups</p>
+          <div class="strip" id="strip"></div>
+          <div class="legend" id="legend"></div>
+        </section>
+
+        <div class="summary" id="summary"></div>
+
+        <div class="stack" id="sections"></div>
+      </div>
+
+      <!-- Practice -->
+      <div data-pane="practice" hidden>
+        <section class="panel">
+          <div class="quiz-head">
+            <p class="label" style="margin:0">Read this report</p>
+            <span class="score">Score <b id="score">0 / 0</b></span>
+          </div>
+          <div class="report" id="q-report"></div>
+          <p class="question" id="q-text"></p>
+          <div class="options" id="q-options"></div>
+          <p class="explain" id="q-explain" hidden></p>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn primary" id="q-next">Next question</button>
+            <button class="btn" id="q-decode">Open in decoder</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Reference -->
+      <div class="ref" data-pane="ref" hidden>
+        <section class="panel">
+          <h3>Intensity &amp; descriptors</h3>
+          <dl>
+            <dt>-</dt><dd>Light</dd><dt>(none)</dt><dd>Moderate</dd><dt>+</dt><dd>Heavy (or well-developed for FC/PO)</dd>
+            <dt>VC</dt><dd>In the vicinity: 8 km from the aerodrome, not at it</dd>
+            <dt>MI</dt><dd>Shallow</dd><dt>BC</dt><dd>Patches</dd><dt>PR</dt><dd>Partial</dd>
+            <dt>DR</dt><dd>Low drifting (below 2 m)</dd><dt>BL</dt><dd>Blowing (2 m or more)</dd>
+            <dt>SH</dt><dd>Showers</dd><dt>TS</dt><dd>Thunderstorm</dd><dt>FZ</dt><dd>Freezing (supercooled)</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3>Weather phenomena</h3>
+          <dl>
+            <dt>DZ</dt><dd>Drizzle</dd><dt>RA</dt><dd>Rain</dd><dt>SN</dt><dd>Snow</dd><dt>SG</dt><dd>Snow grains</dd>
+            <dt>PL</dt><dd>Ice pellets</dd><dt>GR</dt><dd>Hail (≥ 5 mm)</dd><dt>GS</dt><dd>Small hail / snow pellets</dd>
+            <dt>BR</dt><dd>Mist (vis 1000–5000 m)</dd><dt>FG</dt><dd>Fog (vis &lt; 1000 m)</dd>
+            <dt>HZ</dt><dd>Haze</dd><dt>FU</dt><dd>Smoke</dd><dt>VA</dt><dd>Volcanic ash</dd>
+            <dt>SQ</dt><dd>Squall</dd><dt>FC</dt><dd>Funnel cloud (+FC tornado)</dd><dt>DS / SS</dt><dd>Dust / sand storm</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3>Cloud, visibility &amp; trends</h3>
+          <dl>
+            <dt>FEW</dt><dd>1–2 oktas</dd><dt>SCT</dt><dd>3–4 oktas</dd><dt>BKN</dt><dd>5–7 oktas</dd><dt>OVC</dt><dd>8 oktas</dd>
+            <dt>030</dt><dd>Base 3000 ft above aerodrome level</dd>
+            <dt>9999</dt><dd>10 km or more</dd>
+            <dt>CAVOK</dt><dd>Vis ≥ 10 km, no cloud below 5000 ft (or MSA if higher), no CB/TCU, no significant weather</dd>
+            <dt>NOSIG</dt><dd>No significant change in the next 2 h</dd>
+            <dt>BECMG</dt><dd>Permanent change during the period</dd>
+            <dt>TEMPO</dt><dd>Temporary fluctuations, each &lt; 1 h, &lt; half the period</dd>
+          </dl>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+        const CATS = {
+          header: ["Report", "var(--c-header)"],
+          time: ["Time", "var(--c-time)"],
+          wind: ["Wind", "var(--c-wind)"],
+          vis: ["Visibility / RVR", "var(--c-vis)"],
+          wx: ["Weather", "var(--c-wx)"],
+          cloud: ["Cloud", "var(--c-cloud)"],
+          temp: ["Temperature", "var(--c-temp)"],
+          press: ["Pressure", "var(--c-press)"],
+          trend: ["Change / trend", "var(--c-trend)"],
+          other: ["Other", "var(--c-other)"],
+        };
+
+        const STATIONS = {
+          LEMD: "Madrid/Barajas", LECU: "Madrid/Cuatro Vientos", LEGT: "Getafe", LETO: "Torrejón", LEBL: "Barcelona/El Prat",
+          LEVC: "Valencia", LEZL: "Sevilla", LEMG: "Málaga", LEBB: "Bilbao", LEPA: "Palma de Mallorca", LEAL: "Alicante",
+          LECO: "A Coruña", LEST: "Santiago", LEAS: "Asturias", LEGR: "Granada", LEZG: "Zaragoza", LEGE: "Girona",
+          LERS: "Reus", LEVT: "Vitoria", LEMH: "Menorca", LEIB: "Ibiza", LEVX: "Vigo", LESA: "Salamanca", LEVD: "Valladolid",
+          LEMO: "Sevilla/Morón", LEJR: "Jerez", LEPP: "Pamplona", LELN: "León", LERJ: "Logroño", LEBZ: "Badajoz",
+          GCLP: "Gran Canaria", GCXO: "Tenerife Norte", GCTS: "Tenerife Sur", GCRR: "Lanzarote", GCFV: "Fuerteventura",
+          LPPT: "Lisboa", LPPR: "Porto", EGLL: "London/Heathrow", LFPG: "Paris/Charles de Gaulle", EDDF: "Frankfurt",
+          EHAM: "Amsterdam/Schiphol", LIRF: "Roma/Fiumicino", LSZH: "Zürich", EIDW: "Dublin",
+        };
+
+        const DESC = { MI: "shallow", BC: "patches of", PR: "partial", DR: "low drifting", BL: "blowing", SH: "showers of", TS: "thunderstorm", FZ: "freezing" };
+        const PHEN = {
+          DZ: "drizzle", RA: "rain", SN: "snow", SG: "snow grains", IC: "ice crystals", PL: "ice pellets", GR: "hail", GS: "small hail / snow pellets",
+          UP: "unknown precipitation", BR: "mist", FG: "fog", FU: "smoke", VA: "volcanic ash", DU: "widespread dust", SA: "sand", HZ: "haze",
+          PY: "spray", PO: "dust/sand whirls", SQ: "squalls", FC: "funnel cloud", SS: "sandstorm", DS: "duststorm",
+        };
+        const AMOUNT = { FEW: "Few (1–2 oktas)", SCT: "Scattered (3–4 oktas)", BKN: "Broken (5–7 oktas)", OVC: "Overcast (8 oktas)" };
+        const DIRS = { N: "north", NE: "north-east", E: "east", SE: "south-east", S: "south", SW: "south-west", W: "west", NW: "north-west" };
+        const WX_RE = /^(\+|-|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)*)$/;
+
+        const day = (d) => `day ${+d}`;
+        const hhmm = (h, m) => `${h}:${m} UTC`;
+        const temp = (s) => (s[0] === "M" ? -1 : 1) * +s.replace("M", "");
+        const ft = (n) => `${n.toLocaleString("en")} ft`;
+
+        function weatherText(tok) {
+          const m = tok.match(WX_RE);
+          if (!m || (!m[2] && !m[3])) return null;
+          const [, int, desc, phen] = m;
+          const list = (phen.match(/../g) || []).map((p) => PHEN[p]);
+          let txt = "";
+          if (int === "-") txt += "light ";
+          else if (int === "+") txt += tok.includes("FC") || tok.includes("PO") ? "well-developed " : "heavy ";
+          else if (!int && list.length && /DZ|RA|SN|SG|PL|GR|GS|UP/.test(phen)) txt += "moderate ";
+          if (desc === "TS") txt += list.length ? `thunderstorm with ${list.join(" and ")}` : "thunderstorm";
+          else if (desc === "SH") txt += list.length ? `showers of ${list.join(" and ")}` : "showers";
+          else if (desc) txt += `${DESC[desc]} ${list.join(" and ")}`;
+          else txt += list.join(" and ");
+          if (int === "VC") txt += " in the vicinity";
+          if (tok === "+FC") txt = "tornado or waterspout";
+          let note = "";
+          if (/FG/.test(phen) && desc !== "MI" && desc !== "BC" && desc !== "PR" && int !== "VC") note = "Fog: visibility below 1000 m.";
+          if (desc === "FZ") note = "Supercooled: risk of airframe icing.";
+          if (phen === "BR") note = "Mist: visibility 1000–5000 m.";
+          if (desc === "TS") note = "Expect CB, turbulence, icing, wind shear and lightning.";
+          return { text: txt.charAt(0).toUpperCase() + txt.slice(1), note };
+        }
+
+        function windText(m) {
+          const [, dir, spd, , gust, unit] = m;
+          const u = unit === "KT" ? "kt" : unit === "MPS" ? "m/s" : "km/h";
+          if (dir === "000" && +spd === 0) return { text: "Calm", d: { calm: true } };
+          let t = dir === "VRB" ? `Variable direction, ${+spd} ${u}` : `From ${dir}° true at ${+spd} ${u}`;
+          if (gust) t += `, gusting ${+gust} ${u}`;
+          const note = unit === "MPS" ? `≈ ${Math.round(spd * 1.944)} kt` : "Direction is in °TRUE (ATIS and tower give °MAGNETIC).";
+          return { text: t, note, d: { dir, spd: +spd, gust: gust ? +gust : null, unit: u } };
+        }
+
+        function decode(input) {
+          const toks = input.toUpperCase().replace(/=/g, " ").trim().split(/\s+/).filter(Boolean);
+          const out = { type: null, station: null, items: [], sections: [] };
+          let sec = { title: "Observation", period: null, items: [], data: { wx: [], clouds: [] }, main: true };
+          out.sections.push(sec);
+          let n = 0;
+          const add = (tok, cat, text, note = "") => {
+            const it = { id: n++, tok, cat, text, note };
+            out.items.push(it);
+            sec.items.push(it);
+            return it;
+          };
+          const newSection = (title) => {
+            sec = { title, period: null, items: [], data: { wx: [], clouds: [] } };
+            out.sections.push(sec);
+          };
+
+          for (let i = 0; i < toks.length; i++) {
+            const t = toks[i];
+            let m;
+
+            if (t === "RMK") {
+              const rest = toks.slice(i + 1).join(" ");
+              add("RMK" + (rest ? " " + rest : ""), "other", "Remarks: national or local information", "Not part of the internationally coded content.");
+              break;
+            }
+
+            if ((m = t.match(/^(METAR|SPECI|TAF)$/))) {
+              out.type = t;
+              if (t === "TAF") sec.title = "Base forecast";
+              add(t, "header", { METAR: "Routine aerodrome weather report (usually every 30 min)", SPECI: "Special report: issued when conditions change significantly", TAF: "Terminal aerodrome forecast" }[t]);
+              continue;
+            }
+            if (t === "COR") { add(t, "header", "Corrected report"); continue; }
+            if (t === "AMD") { add(t, "header", "Amended forecast"); continue; }
+            if (t === "NIL") { add(t, "header", "Missing report (nothing received)"); continue; }
+            if (t === "AUTO") { add(t, "header", "Fully automated observation, no human observer", "Cloud type (CB/TCU) may show as ///."); continue; }
+            if (t === "CNL") { add(t, "header", "Cancelled forecast"); continue; }
+
+            if (!out.station && /^[A-Z]{4}$/.test(t) && !WX_RE.test(t) || (!out.station && /^[A-Z]{4}$/.test(t) && i <= 2)) {
+              out.station = t;
+              add(t, "header", `Aerodrome ${t}${STATIONS[t] ? ` (${STATIONS[t]})` : ""}`, "ICAO location indicator.");
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{2})(\d{2})(\d{2})Z$/))) {
+              add(t, "time", `Issued on ${day(m[1])} at ${hhmm(m[2], m[3])}`);
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{2})(\d{2})\/(\d{2})(\d{2})$/))) {
+              const txt = `From ${day(m[1])} ${m[2]}:00 to ${day(m[3])} ${m[4]}:00 UTC`;
+              if (sec.main && out.type === "TAF") add(t, "time", `Valid ${txt.charAt(0).toLowerCase() + txt.slice(1)}`, `${(((+m[3] - +m[1]) * 24 + (+m[4] - +m[2])) + 744) % 744} h forecast.`);
+              else { sec.period = txt; add(t, "time", `Period: ${txt.charAt(0).toLowerCase() + txt.slice(1)}`); }
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?(KT|MPS|KMH)$/))) {
+              const w = windText(m);
+              sec.data.wind = { ...w.d, text: w.text };
+              add(t, "wind", w.text, w.note);
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{3})V(\d{3})$/))) {
+              add(t, "wind", `Direction varying between ${m[1]}° and ${m[2]}°`, "Reported when the direction varies by 60° or more and the speed is above 3 kt.");
+              if (sec.data.wind) sec.data.wind.text += ` (varying ${m[1]}°–${m[2]}°)`;
+              continue;
+            }
+
+            if (t === "CAVOK") {
+              sec.data.cavok = true;
+              sec.data.vis = "10 km or more";
+              add(t, "vis", "Ceiling and visibility OK", "Visibility 10 km or more, no cloud below 5000 ft (or MSA if higher), no CB/TCU and no significant weather.");
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{4})(NDV)?$/))) {
+              const v = +m[1];
+              const txt = v === 9999 ? "10 km or more" : v === 0 ? "less than 50 m" : v >= 5000 ? `${v / 1000} km` : `${v} m`;
+              if (sec.data.vis === undefined) {
+                sec.data.vis = txt;
+                sec.data.visM = v === 9999 ? 10000 : v;
+                add(t, "vis", `Visibility ${txt}`, m[2] ? "NDV: no directional variation available (automatic sensor)." : v === 9999 ? "9999 never means exactly 9999 m." : v < 1500 ? "Low visibility." : "");
+              } else add(t, "vis", `Visibility ${txt}`);
+              continue;
+            }
+
+            if ((m = t.match(/^(\d{4})(N|NE|E|SE|S|SW|W|NW)$/))) {
+              add(t, "vis", `Minimum visibility ${+m[1]} m towards the ${DIRS[m[2]]}`, "Given when the minimum is below 1500 m or below half the prevailing visibility.");
+              continue;
+            }
+
+            if ((m = t.match(/^(P|M)?(\d+)(\/(\d+))?SM$/))) {
+              const val = m[4] ? `${m[2]}/${m[4]}` : m[2];
+              sec.data.vis = `${m[1] === "P" ? "more than " : m[1] === "M" ? "less than " : ""}${val} statute miles`;
+              add(t, "vis", `Visibility ${sec.data.vis}`, "US/ICAO North American format.");
+              continue;
+            }
+
+            if ((m = t.match(/^R(\d{2}[LCR]?)\/([PM])?(\d{4})(V([PM])?(\d{4}))?(FT)?\/?([UDN])?$/))) {
+              const unit = m[7] ? "ft" : "m";
+              const q = (p, v) => `${p === "P" ? "more than " : p === "M" ? "less than " : ""}${+v} ${unit}`;
+              let txt = `RVR runway ${m[1]}: ${q(m[2], m[3])}`;
+              if (m[4]) txt = `RVR runway ${m[1]}: varying from ${q(m[2], m[3])} to ${q(m[5], m[6])}`;
+              const tr = { U: "increasing", D: "decreasing", N: "no distinct change" }[m[8]];
+              add(t, "vis", txt + (tr ? `, ${tr}` : ""), "Runway visual range, reported when visibility or RVR is below 1500 m.");
+              continue;
+            }
+
+            if ((m = t.match(/^R(\d{2}[LCR]?)\/(\d|\/)(\d|\/)(\d\d|\/\/)(\d\d|\/\/)$/))) {
+              const dep = { 0: "clear and dry", 1: "damp", 2: "wet or water patches", 3: "rime or frost", 4: "dry snow", 5: "wet snow", 6: "slush", 7: "ice", 8: "compacted snow", 9: "frozen ruts" }[m[2]] || "deposit not reported";
+              const ext = { 1: "≤10%", 2: "11–25%", 5: "26–50%", 9: "51–100%" }[m[3]] || "extent n/a";
+              const fr = m[5] === "//" ? "n/a" : +m[5] >= 91 ? { 91: "poor", 92: "medium/poor", 93: "medium", 94: "medium/good", 95: "good" }[m[5]] || "unreliable" : `0.${m[5]}`;
+              add(t, "other", `Runway ${m[1]} state: ${dep}, covering ${ext}, braking ${fr}`);
+              continue;
+            }
+
+            if (t === "NSW") { sec.data.wx.push("No significant weather"); add(t, "wx", "No significant weather (end of the previous weather)"); continue; }
+            if (t === "NSC") { sec.data.nsc = true; add(t, "cloud", "No significant cloud", "No cloud below 5000 ft or MSA, no CB/TCU, but CAVOK does not apply."); continue; }
+            if (t === "NCD") { sec.data.nsc = true; add(t, "cloud", "No cloud detected (automatic system)"); continue; }
+            if (t === "SKC" || t === "CLR") { sec.data.nsc = true; add(t, "cloud", "Sky clear"); continue; }
+
+            if ((m = t.match(/^(FEW|SCT|BKN|OVC)(\d{3}|\/\/\/)(CB|TCU|\/\/\/)?$/))) {
+              const h = m[2] === "///" ? null : +m[2] * 100;
+              const type = m[3] === "CB" ? " cumulonimbus" : m[3] === "TCU" ? " towering cumulus" : "";
+              const txt = `${AMOUNT[m[1]]}${type}, base ${h === null ? "not known" : ft(h)}`;
+              sec.data.clouds.push({ amt: m[1], h, type: m[3] });
+              add(t, "cloud", txt, m[3] === "///" ? "Cloud type could not be determined (automatic station)." : `Height above aerodrome level (${m[2]} × 100 ft).`);
+              continue;
+            }
+
+            if ((m = t.match(/^VV(\d{3}|\/\/\/)$/))) {
+              const h = m[1] === "///" ? null : +m[1] * 100;
+              sec.data.vv = h;
+              add(t, "cloud", `Sky obscured, vertical visibility ${h === null ? "not known" : ft(h)}`, "Counts as a ceiling.");
+              continue;
+            }
+
+            if ((m = t.match(/^(M?\d{2})\/(M?\d{2})?$/))) {
+              const T = temp(m[1]), D = m[2] ? temp(m[2]) : null;
+              sec.data.T = T; sec.data.Td = D;
+              add(t, "temp", `Temperature ${T} °C${D !== null ? `, dew point ${D} °C` : ""}`, "M = minus.");
+              continue;
+            }
+
+            if ((m = t.match(/^Q(\d{4})$/))) { sec.data.qnh = `${+m[1]} hPa`; add(t, "press", `QNH ${+m[1]} hPa`, "Set it on the altimeter to read altitude above MSL."); continue; }
+            if ((m = t.match(/^A(\d{4})$/))) { sec.data.qnh = `${m[1].slice(0, 2)}.${m[1].slice(2)} inHg`; add(t, "press", `Altimeter setting ${sec.data.qnh}`, `≈ ${Math.round(+m[1] / 100 * 33.8639)} hPa.`); continue; }
+
+            if ((m = t.match(/^RE(.+)$/)) && weatherText(m[1])) {
+              add(t, "wx", `Recent weather: ${weatherText(m[1]).text.toLowerCase()}`, "Observed since the last report (or in the last hour) but not now.");
+              continue;
+            }
+
+            if (t === "WS") {
+              let j = i + 1, txt = "Wind shear";
+              if (toks[j] === "ALL" && toks[j + 1] === "RWY") { txt += " on all runways"; j += 2; }
+              else if (/^R\d{2}[LCR]?$/.test(toks[j] || "")) { txt += ` on runway ${toks[j].slice(1)}`; j++; }
+              else if (toks[j] === "RWY" && toks[j + 1]) { txt += ` on runway ${toks[j + 1]}`; j += 2; }
+              add(toks.slice(i, j).join(" "), "wx", txt, "Reported in the take-off or approach path.");
+              i = j - 1;
+              continue;
+            }
+
+            if ((m = t.match(/^(TX|TN)(M?\d{2})\/(\d{2})(\d{2})Z$/))) {
+              add(t, "temp", `${m[1] === "TX" ? "Maximum" : "Minimum"} temperature ${temp(m[2])} °C on ${day(m[3])} at ${m[4]}:00 UTC`);
+              continue;
+            }
+
+            if (t === "NOSIG") { add(t, "trend", "No significant change expected in the next 2 hours"); continue; }
+
+            if ((m = t.match(/^PROB(30|40)$/))) {
+              newSection(`Probability ${m[1]}%`);
+              if (toks[i + 1] === "TEMPO") {
+                i++;
+                sec.title += ", temporary";
+                add(`${t} TEMPO`, "trend", `${m[1]}% probability of temporary fluctuations`, "Below 30% it isn't mentioned; 50% or more is a TEMPO or BECMG.");
+              } else add(t, "trend", `${m[1]}% probability of the following conditions`, "Below 30% it isn't mentioned; 50% or more is a TEMPO or BECMG.");
+              continue;
+            }
+
+            if (t === "BECMG" || t === "TEMPO") {
+              newSection(t === "BECMG" ? "Becoming" : "Temporary");
+              add(t, "trend", t === "BECMG" ? "Becoming: a permanent change happening during the period" : "Temporary fluctuations: each lasting less than 1 h, in total less than half the period");
+              continue;
+            }
+
+            if ((m = t.match(/^FM(\d{2})(\d{2})(\d{2})$/))) {
+              newSection("From");
+              sec.period = `From ${day(m[1])} at ${hhmm(m[2], m[3])}`;
+              add(t, "trend", `From ${day(m[1])} at ${hhmm(m[2], m[3])}: all previous conditions are replaced`);
+              continue;
+            }
+            if ((m = t.match(/^(FM|TL|AT)(\d{2})(\d{2})$/))) {
+              const w = { FM: "From", TL: "Until", AT: "At" }[m[1]];
+              if (!sec.period) sec.period = `${w} ${hhmm(m[2], m[3])}`;
+              add(t, "time", `${w} ${hhmm(m[2], m[3])}`);
+              continue;
+            }
+
+            const wx = weatherText(t);
+            if (wx) { sec.data.wx.push(wx.text); add(t, "wx", wx.text, wx.note); continue; }
+
+            if (/^\/+$/.test(t)) { add(t, "other", "Group not available (missing or sensor failure)"); continue; }
+
+            add(t, "unknown", "Not recognised", "Check for a typo. This decoder covers the ICAO/EUR format.");
+          }
+
+          // Section titles for METAR trends
+          out.sections.forEach((s, k) => {
+            if (k > 0 && out.type !== "TAF") s.title = `Trend · ${s.title.toLowerCase()}`;
+          });
+          return out;
+        }
+
+        function ceilingOf(d) {
+          if (d.vv !== undefined) return d.vv === null ? "Obscured" : ft(d.vv);
+          const c = d.clouds.filter((c) => (c.amt === "BKN" || c.amt === "OVC") && c.h !== null).sort((a, b) => a.h - b.h)[0];
+          return c ? ft(c.h) : null;
+        }
+
+        function summaryOf(d) {
+          const cards = [];
+          if (d.wind) cards.push(["Wind", d.wind.text]);
+          if (d.vis) cards.push(["Visibility", d.vis]);
+          const ceil = ceilingOf(d);
+          cards.push(["Ceiling", ceil || (d.cavok ? "None below 5000 ft" : "No ceiling"), "Lowest BKN/OVC layer or VV"]);
+          cards.push(["Weather", d.wx.length ? d.wx.join(", ") : d.cavok ? "None significant" : "Nil"]);
+          if (d.T !== undefined) {
+            let note = "";
+            if (d.Td !== null) {
+              const rh = 100 * Math.exp((17.625 * d.Td) / (243.04 + d.Td)) / Math.exp((17.625 * d.T) / (243.04 + d.T));
+              note = `Spread ${d.T - d.Td} °C · RH ≈ ${Math.round(rh)}%`;
+            }
+            cards.push(["Temp / dew point", `${d.T} / ${d.Td ?? "–"} °C`, note]);
+            if (d.Td !== null) cards.push(["Est. cumulus base", ft((d.T - d.Td) * 400), "Spread × 400 ft (rule of thumb)"]);
+            if (d.Td !== null && d.T - d.Td <= 2) cards.push(["Watch out", "Small spread", "Mist or fog likely if it cools further"]);
+          }
+          if (d.qnh) cards.push(["QNH", d.qnh]);
+          return cards;
+        }
+
+        function render() {
+          const text = $("input").value;
+          const r = decode(text);
+          const col = (cat) => (CATS[cat] || CATS.other)[1];
+
+          $("strip").innerHTML = r.items.length
+            ? r.items.map((it) => `<span class="tok${it.cat === "unknown" ? " unknown" : ""}" data-id="${it.id}" style="color:${col(it.cat)};border-color:${col(it.cat)}" title="${esc(it.text)}">${esc(it.tok)}</span>`).join("")
+            : `<p class="empty">Paste a report above.</p>`;
+
+          const main = r.sections[0];
+          const isTaf = r.type === "TAF";
+          $("summary").innerHTML = r.items.length
+            ? summaryOf(main.data).map(([k, v, n]) => `<div class="stat"><small>${isTaf ? "Forecast · " : ""}${k}</small><strong>${esc(v)}</strong>${n ? `<em>${esc(n)}</em>` : ""}</div>`).join("")
+            : "";
+
+          $("sections").innerHTML = r.sections
+            .filter((s) => s.items.length)
+            .map((s) => `
+              <section class="panel section">
+                <h3>${esc(s.title)}${s.period ? `<small>${esc(s.period)}</small>` : ""}</h3>
+                <table><tbody>
+                  ${s.items.map((it) => `
+                    <tr data-id="${it.id}">
+                      <td class="code"><span style="border-color:${col(it.cat)};color:${col(it.cat)}">${esc(it.tok)}</span></td>
+                      <td>${esc(it.text)}${it.note ? `<span class="note">${esc(it.note)}</span>` : ""}</td>
+                    </tr>`).join("")}
+                </tbody></table>
+              </section>`)
+            .join("");
+        }
+
+        // Highlight a group in both the strip and the table
+        const hl = (id, on) => document.querySelectorAll(`[data-id="${id}"]`).forEach((e) => e.classList.toggle("hl", on));
+        ["strip", "sections"].forEach((c) => {
+          $(c).addEventListener("mouseover", (e) => { const t = e.target.closest("[data-id]"); if (t) hl(t.dataset.id, true); });
+          $(c).addEventListener("mouseout", (e) => { const t = e.target.closest("[data-id]"); if (t) hl(t.dataset.id, false); });
+        });
+        $("strip").addEventListener("click", (e) => {
+          const t = e.target.closest("[data-id]");
+          if (!t) return;
+          const row = $("sections").querySelector(`tr[data-id="${t.dataset.id}"]`);
+          if (row) { row.scrollIntoView({ behavior: "smooth", block: "center" }); hl(t.dataset.id, true); setTimeout(() => hl(t.dataset.id, false), 1200); }
+        });
+
+        $("legend").innerHTML = Object.values(CATS).map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join("");
+
+        const EXAMPLES = [
+          ["Fine day", "METAR LEMD 151030Z 34012KT 300V010 9999 FEW040 SCT100 18/04 Q1021 NOSIG"],
+          ["Showers", "METAR LEBB 080650Z 18015G28KT 140V220 4000 -SHRA BKN014 BKN030 12/10 Q1004 TEMPO 2000 SHRA"],
+          ["Fog", "METAR LEST 220600Z 00000KT 0150 R35/0300N FG VV001 08/08 Q1026 BECMG 1500 BR"],
+          ["CAVOK", "METAR LEPA 120850Z 06008KT CAVOK 27/19 Q1016 NOSIG"],
+          ["Thunderstorm", "SPECI LEZL 041715Z 24018G35KT 3000 +TSRA BKN025CB OVC060 22/19 Q1009 RETS WS R27 TEMPO 1500 +TSRA"],
+          ["Automatic", "METAR LECO 191200Z AUTO 25020G32KT 9999 -RA FEW008 BKN012/// 13/11 Q0998"],
+          ["TAF", "TAF LEMD 150500Z 1506/1612 34010KT 9999 FEW040 TX24/1515Z TN08/1606Z BECMG 1510/1512 VRB04KT TEMPO 1515/1520 SHRA BKN040CB PROB30 TEMPO 1517/1520 TSRA BKN030CB"],
+          ["TAF with FM", "TAF LEBL 080500Z 0806/0912 20010KT 9999 SCT025 BECMG 0810/0812 14015KT PROB40 0900/0906 3000 BR BKN008 FM090800 18008KT CAVOK"],
+        ];
+        $("examples").insertAdjacentHTML("beforeend", EXAMPLES.map(([n], i) => `<button class="chip-btn" data-ex="${i}">${n}</button>`).join(""));
+        $("examples").addEventListener("click", (e) => {
+          const b = e.target.closest("[data-ex]");
+          if (b) { $("input").value = EXAMPLES[b.dataset.ex][1]; render(); }
+        });
+        $("input").addEventListener("input", render);
+        $("input").value = EXAMPLES[1][1];
+        render();
+
+        /* ---------- tabs ---------- */
+        const showTab = (name) => {
+          document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name));
+          document.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== name));
+        };
+        document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+        /* ---------- practice ---------- */
+        const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+        const pick = (a) => a[Math.floor(Math.random() * a.length)];
+        const shuffle = (a) => a.map((v) => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map((x) => x[1]);
+        const p2 = (n) => String(n).padStart(2, "0");
+        const tt = (n) => (n < 0 ? "M" + p2(-n) : p2(n));
+
+        function genMetar() {
+          const st = pick(Object.keys(STATIONS).filter((k) => k.startsWith("LE") || k.startsWith("GC")));
+          const parts = [Math.random() < 0.1 ? "SPECI" : "METAR", st, `${p2(rnd(1, 28))}${p2(rnd(0, 23))}${pick(["00", "20", "30", "50"])}Z`];
+
+          // wind
+          const r = Math.random();
+          let dir = rnd(1, 36) * 10, spd = rnd(3, 24);
+          if (r < 0.06) parts.push("00000KT");
+          else if (r < 0.15) parts.push(`VRB0${rnd(1, 3)}KT`);
+          else {
+            const gust = Math.random() < 0.3 ? spd + rnd(10, 16) : 0;
+            parts.push(`${String(dir).padStart(3, "0")}${p2(spd)}${gust ? "G" + gust : ""}KT`);
+            if (Math.random() < 0.2) parts.push(`${String(((dir - 40 + 360) % 360) || 360).padStart(3, "0")}V${String(((dir + 40) % 360) || 360).padStart(3, "0")}`);
+          }
+
+          const T = rnd(-6, 32);
+          if (Math.random() < 0.18) {
+            parts.push("CAVOK");
+            parts.push(`${tt(T)}/${tt(T - rnd(4, 14))}`);
+          } else {
+            const vis = pick([9999, 9999, 9999, 8000, 6000, 4000, 3000, 1500, 800, 300]);
+            parts.push(String(vis).padStart(4, "0"));
+            let wx = null;
+            if (vis < 1000) wx = pick(["FG", "FZFG", "+SN", "FG"]);
+            else if (vis <= 5000) wx = pick(["BR", "-RA", "RA", "-DZ", "SHRA", "+SHRA", "HZ", "-SN", "TSRA", "-SHSN"]);
+            else if (Math.random() < 0.35) wx = pick(["-RA", "VCSH", "-SHRA", "VCTS", "-DZ"]);
+            if (wx === "FZFG" && T > 0) wx = "FG";
+            if (/SN/.test(wx || "") && T > 2) wx = "RA";
+            if (wx) parts.push(wx);
+
+            if (/FG/.test(wx || "") && Math.random() < 0.4) parts.push(`VV00${rnd(1, 3)}`);
+            else {
+              const layers = rnd(wx ? 1 : 0, 3);
+              let h = rnd(3, 25);
+              const amts = ["FEW", "SCT", "BKN", "OVC"];
+              let ai = rnd(0, 2);
+              const out = [];
+              for (let k = 0; k < layers; k++) {
+                const isCb = /TS/.test(wx || "") && k === 0;
+                out.push(`${amts[ai]}${String(h).padStart(3, "0")}${isCb ? "CB" : ""}`);
+                h += rnd(5, 40);
+                ai = Math.min(3, ai + rnd(0, 1));
+                if (amts[ai - 1] === "OVC") break;
+              }
+              parts.push(...(out.length ? out : ["NSC"]));
+            }
+            const spread = /FG|BR|DZ/.test(wx || "") ? rnd(0, 2) : rnd(1, 12);
+            parts.push(`${tt(T)}/${tt(T - spread)}`);
+          }
+          parts.push(`Q${String(rnd(988, 1036)).padStart(4, "0")}`);
+          parts.push(pick(["NOSIG", "NOSIG", "NOSIG", "TEMPO 3000 SHRA", "BECMG 9999 NSW", "TEMPO BKN008"]));
+          return parts.join(" ");
+        }
+
+        const OKTAS = ["1–2 oktas", "3–4 oktas", "5–7 oktas", "8 oktas"];
+
+        function makeQuestion(text) {
+          const r = decode(text);
+          const d = r.sections[0].data;
+          const items = r.sections[0].items;
+          const qs = [];
+
+          const ceil = ceilingOf(d);
+          const allH = d.clouds.filter((c) => c.h !== null).map((c) => c.h);
+          if (!d.cavok) {
+            const correct = ceil || "No ceiling";
+            const opts = new Set([correct]);
+            allH.forEach((h) => opts.add(ft(h)));
+            if (ceil && d.vv === undefined) { const v = parseInt(ceil.replace(/\D/g, ""), 10); opts.add(ft(v / 10)); opts.add(ft(v * 10)); }
+            ["No ceiling", ft(rnd(5, 40) * 100), ft(rnd(5, 40) * 100)].forEach((o) => opts.add(o));
+            qs.push({ q: "What is the ceiling?", correct, opts: [...opts], explain: "The ceiling is the lowest BKN or OVC layer (or the vertical visibility). Heights are in hundreds of feet above aerodrome level." });
+          }
+
+          const visItem = items.find((it) => it.cat === "vis" && /^\d{4}$/.test(it.tok));
+          if (visItem) {
+            const correct = d.vis;
+            const v = +visItem.tok;
+            const opts = new Set([correct, v === 9999 ? "9999 m" : `${v / 10} m`, v === 9999 ? "9.9 km" : `${v * 10 >= 10000 ? "10 km or more" : v * 10 + " m"}`, "10 km or more", "less than 50 m", "5 km"]);
+            qs.push({ q: `The group <code>${visItem.tok}</code> means a visibility of…`, correct, opts: [...opts], explain: "Visibility is in metres; 9999 means 10 km or more and 0000 means less than 50 m." });
+          }
+
+          const cloud = d.clouds[Math.floor(Math.random() * d.clouds.length)];
+          if (cloud) {
+            const tok = items.find((it) => it.cat === "cloud" && it.tok.startsWith(cloud.amt)).tok;
+            const correct = OKTAS[["FEW", "SCT", "BKN", "OVC"].indexOf(cloud.amt)];
+            qs.push({ q: `How much of the sky is covered by <code>${tok}</code>?`, correct, opts: [...OKTAS], explain: "FEW 1–2, SCT 3–4, BKN 5–7, OVC 8 oktas." });
+          }
+
+          const wxItem = items.find((it) => it.cat === "wx");
+          if (wxItem && weatherText(wxItem.tok)) {
+            const correct = wxItem.text;
+            const pool = ["-RA", "+SHRA", "BR", "FG", "FZFG", "TSRA", "VCSH", "-DZ", "HZ", "-SN", "BCFG", "SHGS", "FZDZ", "+TSGR"].filter((x) => x !== wxItem.tok).map((x) => weatherText(x).text);
+            qs.push({ q: `What does <code>${wxItem.tok}</code> mean?`, correct, opts: [correct, ...shuffle(pool).slice(0, 5)], explain: wxItem.note || "Intensity (–/+/VC), then descriptor, then phenomenon." });
+          }
+
+          if (d.T !== undefined && d.Td !== null) {
+            const correct = `${d.Td} °C`;
+            const opts = new Set([correct, `${-d.Td || d.Td + 2} °C`, `${d.T} °C`, `${d.Td + 1} °C`, `${d.Td - 1} °C`]);
+            qs.push({ q: "What is the dew point?", correct, opts: [...opts], explain: "Temperature / dew point in °C; M means minus." });
+          }
+
+          if (d.wind && !d.wind.calm && d.wind.dir !== "VRB") {
+            const correct = "True north";
+            qs.push({ q: `The wind direction ${d.wind.dir}° in this METAR is measured from…`, correct, opts: [correct, "Magnetic north", "Grid north", "The runway heading"], explain: "METAR and TAF winds are in °true. ATIS and tower winds are in °magnetic, so you can use them directly with runway headings." });
+            if (d.wind.gust) {
+              const c2 = `${d.wind.gust} kt`;
+              qs.push({ q: "What is the maximum gust?", correct: c2, opts: [c2, `${d.wind.spd} kt`, `${d.wind.gust - d.wind.spd} kt`, `${d.wind.gust + 10} kt`], explain: "dddffGggKT: direction, mean speed, G, gust speed." });
+            }
+          }
+
+          if (d.cavok) {
+            qs.push({ q: "Which of these is NOT guaranteed by CAVOK?", correct: "No cloud at all", opts: ["No cloud at all", "Visibility 10 km or more", "No CB or TCU", "No significant weather"], explain: "CAVOK allows cloud above 5000 ft (or the highest MSA). It doesn't mean a clear sky." });
+          }
+
+          const trend = items.find((it) => it.cat === "trend");
+          if (trend && (trend.tok === "NOSIG" || trend.tok === "TEMPO" || trend.tok === "BECMG")) {
+            const ans = { NOSIG: "No significant change in the next 2 h", TEMPO: "Temporary fluctuations, each under 1 h", BECMG: "A permanent change during the period" };
+            qs.push({ q: `What does <code>${trend.tok}</code> mean in this report?`, correct: ans[trend.tok], opts: Object.values(ans).concat(["Conditions valid for the next 24 h"]), explain: "A METAR trend covers the 2 hours after the observation." });
+          }
+
+          const q = pick(qs);
+          q.opts = shuffle([...new Set(q.opts)].filter((o) => o !== q.correct)).slice(0, 3).concat(q.correct);
+          q.opts = shuffle(q.opts);
+          return q;
+        }
+
+        let score = { ok: 0, total: 0 }, currentReport = "";
+        function nextQuestion() {
+          currentReport = genMetar();
+          const q = makeQuestion(currentReport);
+          $("q-report").textContent = currentReport;
+          $("q-text").innerHTML = q.q;
+          $("q-explain").hidden = true;
+          $("q-options").innerHTML = q.opts.map((o, i) => `<button data-i="${i}">${esc(o)}</button>`).join("");
+          $("q-options").querySelectorAll("button").forEach((b) =>
+            b.addEventListener("click", () => {
+              const chosen = q.opts[+b.dataset.i];
+              const ok = chosen === q.correct;
+              score.total++; if (ok) score.ok++;
+              $("score").textContent = `${score.ok} / ${score.total}`;
+              $("q-options").querySelectorAll("button").forEach((x) => {
+                x.disabled = true;
+                if (q.opts[+x.dataset.i] === q.correct) x.classList.add("right");
+              });
+              if (!ok) b.classList.add("wrong");
+              $("q-explain").hidden = false;
+              $("q-explain").textContent = (ok ? "✓ Correct. " : "✗ Not quite. ") + q.explain;
+            })
+          );
+        }
+        $("q-next").addEventListener("click", nextQuestion);
+        $("q-decode").addEventListener("click", () => { $("input").value = currentReport; render(); showTab("decode"); });
+        nextQuestion();
+      })();
+    </script>
+    <script src="../home-link.js" defer></script>
+  </body>
+</html>

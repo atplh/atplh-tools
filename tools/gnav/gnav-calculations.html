@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../../atplh-tools-rotor.svg" />
+    <title>GNAV calculations</title>
+    <style>
+      :root {
+        --bg: #0a131e;
+        --surface: #0f1b29;
+        --surface-2: #142335;
+        --line: #1f3145;
+        --line-strong: #2c4258;
+        --text: #e8eef5;
+        --muted: #8fa1b4;
+        --faint: #5d7086;
+        --accent: #efc36a;
+        --rl: #efc36a;
+        --gc: #7fb8e6;
+        --geo: #7fd6a0;
+        --bad: #f08a7a;
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, "Segoe UI", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font: 600 0.78rem ui-monospace, Consolas, monospace;
+        letter-spacing: 0.06em;
+      }
+
+      h1 { margin: 4px 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+      .lead { margin: 0; color: var(--muted); max-width: 720px; }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 28px 0 20px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .tabs button {
+        padding: 7px 14px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 18px;
+      }
+
+      .label {
+        margin: 0 0 12px;
+        color: var(--faint);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .field { display: grid; gap: 4px; margin-bottom: 12px; }
+      .field > span { color: var(--muted); font-size: 0.84rem; }
+      .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+      input, select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px ui-monospace, Consolas, monospace;
+      }
+
+      select { font-family: inherit; font-size: 0.9rem; }
+
+      input.invalid { border-color: var(--bad); }
+
+      input:focus-visible, select:focus-visible, button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .hint { margin: 4px 0 0; color: var(--faint); font-size: 0.8rem; }
+
+      .quiz { display: flex; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+
+      .btn {
+        padding: 8px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text);
+        font: inherit;
+        font-size: 0.86rem;
+        cursor: pointer;
+      }
+
+      .btn:hover { border-color: var(--accent); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a1407; font-weight: 600; }
+
+      .main-col { display: grid; gap: 16px; min-width: 0; }
+
+      .question {
+        padding: 12px 14px;
+        border: 1px solid rgba(239, 195, 106, 0.45);
+        border-radius: var(--radius);
+        background: rgba(239, 195, 106, 0.06);
+        font-size: 0.95rem;
+      }
+
+      .question b { font-family: ui-monospace, Consolas, monospace; color: var(--accent); font-weight: 600; }
+
+      .results {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        min-width: 0;
+      }
+
+      .stat small { display: block; color: var(--muted); font-size: 0.78rem; }
+      .stat strong { display: block; margin-top: 2px; font: 600 1.25rem ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+      .stat em { display: block; color: var(--faint); font-size: 0.76rem; font-style: normal; }
+      .stat.key { border-color: rgba(239, 195, 106, 0.45); }
+
+      .concealed .results strong, .concealed .steps { filter: blur(7px); user-select: none; }
+      .concealed .reveal-note { display: block; }
+      .reveal-note { display: none; color: var(--accent); font-size: 0.84rem; margin: 0; }
+
+      .diagram-wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        gap: 16px;
+        align-items: center;
+      }
+
+      svg.diagram { width: 100%; height: auto; display: block; }
+
+      .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 0.88rem; }
+      .legend li { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 8px; }
+      .legend i { height: 3px; border-radius: 2px; }
+      .legend b { font-weight: 600; }
+      .legend span { color: var(--muted); }
+
+      .steps { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+      .steps li + li { margin-top: 6px; }
+      .steps code { color: var(--text); font: 0.88rem ui-monospace, Consolas, monospace; }
+
+      .error {
+        display: none;
+        padding: 12px 14px;
+        border: 1px solid rgba(240, 138, 122, 0.4);
+        border-radius: var(--radius);
+        background: rgba(240, 138, 122, 0.08);
+        color: var(--bad);
+        font-size: 0.9rem;
+      }
+
+      .tips { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.88rem; }
+      .tips li + li { margin-top: 6px; }
+      .tips strong { color: var(--text); font-weight: 600; }
+
+      [hidden] { display: none !important; }
+
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        .diagram-wrap { grid-template-columns: minmax(0, 1fr); }
+      }
+
+      @media (max-width: 560px) {
+        .page { padding: 24px 16px 48px; }
+        .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">061 · GENERAL NAVIGATION</p>
+      <h1>GNAV calculations</h1>
+      <p class="lead">The classic exam calculations: departure, convergency and conversion angle, rhumb line against great circle, chart convergence, scale, and arc to time. Each one shows the working. Press “Quiz me” for a random question.</p>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="dep">Departure</button>
+        <button role="tab" aria-selected="false" data-tab="gc">Rhumb line &amp; great circle</button>
+        <button role="tab" aria-selected="false" data-tab="conv">Chart convergence</button>
+        <button role="tab" aria-selected="false" data-tab="scale">Scale</button>
+        <button role="tab" aria-selected="false" data-tab="time">Arc &amp; time</button>
+      </div>
+
+      <!-- ============ DEPARTURE ============ -->
+      <div class="layout" data-pane="dep">
+        <form class="panel" data-form="dep" autocomplete="off">
+          <p class="label">Inputs</p>
+          <label class="field"><span>Find</span>
+            <select data-k="mode"><option value="dep">Departure from dlong</option><option value="dlong">dlong from departure</option></select>
+          </label>
+          <label class="field"><span>Latitude of the parallel</span><input data-k="lat" value="52 30N" /></label>
+          <label class="field" data-show="dep"><span>Change of longitude (dlong)</span><input data-k="dlong" value="10 00" /></label>
+          <label class="field" data-show="dlong"><span>Departure (NM)</span><input data-k="depnm" value="365" inputmode="decimal" /></label>
+          <p class="hint">Positions as <code>52 30N</code>, <code>52°30'N</code>, <code>5230N</code> or <code>-52.5</code>. Angles as <code>10 30</code> (degrees and minutes) or <code>10.5</code>.</p>
+          <div class="quiz"><button type="button" class="btn primary" data-quiz>Quiz me</button><button type="button" class="btn" data-reveal hidden>Reveal answer</button></div>
+        </form>
+        <div class="main-col" data-out="dep"></div>
+      </div>
+
+      <!-- ============ RHUMB / GREAT CIRCLE ============ -->
+      <div class="layout" data-pane="gc" hidden>
+        <form class="panel" data-form="gc" autocomplete="off">
+          <p class="label">From A to B</p>
+          <div class="field-row">
+            <label class="field"><span>A latitude</span><input data-k="alat" value="50 00N" /></label>
+            <label class="field"><span>A longitude</span><input data-k="alon" value="005 00W" /></label>
+          </div>
+          <div class="field-row">
+            <label class="field"><span>B latitude</span><input data-k="blat" value="56 00N" /></label>
+            <label class="field"><span>B longitude</span><input data-k="blon" value="025 00E" /></label>
+          </div>
+          <p class="hint">Longitudes as <code>005 00W</code>, <code>00500W</code> or <code>-5</code>. Keep the change of longitude under 180°.</p>
+          <div class="quiz"><button type="button" class="btn primary" data-quiz>Quiz me</button><button type="button" class="btn" data-reveal hidden>Reveal answer</button></div>
+        </form>
+        <div class="main-col" data-out="gc"></div>
+      </div>
+
+      <!-- ============ CHART CONVERGENCE ============ -->
+      <div class="layout" data-pane="conv" hidden>
+        <form class="panel" data-form="conv" autocomplete="off">
+          <p class="label">Inputs</p>
+          <label class="field"><span>Projection</span>
+            <select data-k="proj">
+              <option value="lcc">Lambert conformal conic</option>
+              <option value="merc">Mercator</option>
+              <option value="ps">Polar stereographic</option>
+            </select>
+          </label>
+          <div class="field-row" data-show="lcc">
+            <label class="field"><span>Standard parallel 1</span><input data-k="sp1" value="37N" /></label>
+            <label class="field"><span>Standard parallel 2</span><input data-k="sp2" value="65N" /></label>
+          </div>
+          <label class="field"><span>Change of longitude (dlong)</span><input data-k="dlong" value="20" /></label>
+          <label class="field"><span>Mean latitude (for earth convergency)</span><input data-k="lat" value="45N" /></label>
+          <p class="hint">The parallel of origin is taken as the mean of the two standard parallels, as in the exam.</p>
+          <div class="quiz"><button type="button" class="btn primary" data-quiz>Quiz me</button><button type="button" class="btn" data-reveal hidden>Reveal answer</button></div>
+        </form>
+        <div class="main-col" data-out="conv"></div>
+      </div>
+
+      <!-- ============ SCALE ============ -->
+      <div class="layout" data-pane="scale" hidden>
+        <form class="panel" data-form="scale" autocomplete="off">
+          <p class="label">Inputs</p>
+          <label class="field"><span>Find</span>
+            <select data-k="mode">
+              <option value="earth">Earth distance from chart length</option>
+              <option value="chart">Chart length from earth distance</option>
+              <option value="scale">Scale from chart length and earth distance</option>
+              <option value="merc">Mercator scale at another latitude</option>
+            </select>
+          </label>
+          <label class="field" data-show="earth chart merc"><span>Scale 1 :</span><input data-k="n" value="500000" inputmode="numeric" /></label>
+          <label class="field" data-show="earth scale"><span>Chart length (cm)</span><input data-k="cm" value="12.5" inputmode="decimal" /></label>
+          <label class="field" data-show="chart scale"><span>Earth distance (NM)</span><input data-k="nm" value="45" inputmode="decimal" /></label>
+          <div class="field-row" data-show="merc">
+            <label class="field"><span>Scale valid at</span><input data-k="lat1" value="0" /></label>
+            <label class="field"><span>Find scale at</span><input data-k="lat2" value="60N" /></label>
+          </div>
+          <div class="quiz"><button type="button" class="btn primary" data-quiz>Quiz me</button><button type="button" class="btn" data-reveal hidden>Reveal answer</button></div>
+        </form>
+        <div class="main-col" data-out="scale"></div>
+      </div>
+
+      <!-- ============ ARC & TIME ============ -->
+      <div class="layout" data-pane="time" hidden>
+        <form class="panel" data-form="time" autocomplete="off">
+          <p class="label">Inputs</p>
+          <label class="field"><span>Find</span>
+            <select data-k="mode">
+              <option value="lmt">LMT from UTC</option>
+              <option value="utc">UTC from LMT</option>
+              <option value="arc">Arc to time only</option>
+            </select>
+          </label>
+          <label class="field"><span>Longitude</span><input data-k="lon" value="003 45W" /></label>
+          <label class="field" data-show="lmt utc"><span data-label>Time (hh:mm)</span><input data-k="t" value="12:00" /></label>
+          <p class="hint">LMT is local mean time: the time by the mean sun at that meridian.</p>
+          <div class="quiz"><button type="button" class="btn primary" data-quiz>Quiz me</button><button type="button" class="btn" data-reveal hidden>Reveal answer</button></div>
+        </form>
+        <div class="main-col" data-out="time"></div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const rad = (d) => (d * Math.PI) / 180;
+        const deg = (r) => (r * 180) / Math.PI;
+        const norm = (d) => ((d % 360) + 360) % 360;
+        const signed = (d) => { const n = norm(d); return n > 180 ? n - 360 : n; };
+        const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+        const pick = (a) => a[Math.floor(Math.random() * a.length)];
+        const fx = (v, dp = 1) => (Math.abs(v) < 0.5 * Math.pow(10, -dp) ? 0 : v).toFixed(dp);
+
+        /* ---------- parsing & formatting ---------- */
+        // Accepts "52 30N", "52°30'N", "5230N", "00500W", "-52.5", "N52 30.5"
+        function parsePos(str, kind) {
+          let s = String(str).trim().toUpperCase().replace(/[°º'’"]/g, " ");
+          if (!s) return NaN;
+          const hem = (s.match(/[NSEW]/) || [])[0];
+          if (hem && ((kind === "lat" && /[EW]/.test(hem)) || (kind === "lon" && /[NS]/.test(hem)))) return NaN;
+          let sign = /[SW]/.test(hem || "") ? -1 : 1;
+          s = s.replace(/[NSEW]/g, " ").trim();
+          if (s.startsWith("-")) { sign *= -1; s = s.slice(1); }
+          const nums = s.split(/[\s,]+/).filter(Boolean);
+          if (!nums.length || nums.some((n) => !/^\d+(\.\d+)?$/.test(n))) return NaN;
+          let v;
+          if (nums.length === 1 && !nums[0].includes(".") && nums[0].length >= (kind === "lon" ? 5 : 4) && hem) {
+            const d = nums[0].slice(0, kind === "lon" ? 3 : 2), m = nums[0].slice(kind === "lon" ? 3 : 2);
+            v = +d + +m / 60;
+          } else {
+            v = +nums[0] + (+nums[1] || 0) / 60 + (+nums[2] || 0) / 3600;
+            if ((nums[1] && +nums[1] >= 60) || (nums[2] && +nums[2] >= 60)) return NaN;
+          }
+          const max = kind === "lat" ? 90 : 180;
+          return v > max ? NaN : sign * v;
+        }
+
+        function parseAngle(str) {
+          const s = String(str).trim().replace(/[°º'’]/g, " ");
+          const nums = s.split(/[\s,]+/).filter(Boolean);
+          if (!nums.length || nums.some((n) => !/^\d+(\.\d+)?$/.test(n))) return NaN;
+          return +nums[0] + (+nums[1] || 0) / 60;
+        }
+
+        const dm = (v, padDeg = 0) => {
+          const a = Math.abs(v);
+          let d = Math.floor(a), m = (a - d) * 60;
+          if (+m.toFixed(1) >= 60) { d += 1; m = 0; }
+          return `${String(d).padStart(padDeg, "0")}°${m.toFixed(1).padStart(4, "0")}'`;
+        };
+        const fmtLat = (v) => `${dm(v, 2)}${v < 0 ? "S" : "N"}`;
+        const fmtLon = (v) => `${dm(v, 3)}${v < 0 ? "W" : "E"}`;
+        const trk = (t) => `${fx(norm(t)).padStart(5, "0")}°`;
+        const hms = (minutes) => {
+          const sgn = minutes < 0 ? "-" : "";
+          let s = Math.round(Math.abs(minutes) * 60);
+          const h = Math.floor(s / 3600); s -= h * 3600;
+          const m = Math.floor(s / 60); s -= m * 60;
+          return `${sgn}${h} h ${String(m).padStart(2, "0")} min${s ? ` ${String(s).padStart(2, "0")} s` : ""}`;
+        };
+        const clock = (minutes) => {
+          const day = Math.floor(minutes / 1440);
+          const t = ((Math.round(minutes) % 1440) + 1440) % 1440;
+          const txt = `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+          return { txt, day };
+        };
+
+        const stat = (label, value, note = "", key = false) =>
+          `<div class="stat${key ? " key" : ""}"><small>${label}</small><strong>${value}</strong>${note ? `<em>${note}</em>` : ""}</div>`;
+        const errorBox = (msg) => `<div class="error" style="display:block">${msg}</div>`;
+        const block = (label, inner) => `<section class="panel"><p class="label">${label}</p>${inner}</section>`;
+        const steps = (arr) => `<ol class="steps">${arr.map((s) => `<li>${s}</li>`).join("")}</ol>`;
+
+        /* ---------- generic tab machinery ---------- */
+        const tabs = {};
+        const formOf = (name) => document.querySelector(`[data-form="${name}"]`);
+        const val = (name, k) => formOf(name).querySelector(`[data-k="${k}"]`).value;
+        const setVal = (name, k, v) => { formOf(name).querySelector(`[data-k="${k}"]`).value = v; };
+
+        function update(name) {
+          const form = formOf(name);
+          const mode = form.querySelector('[data-k="mode"], [data-k="proj"]');
+          form.querySelectorAll("[data-show]").forEach((el) => (el.hidden = !el.dataset.show.split(" ").includes(mode.value)));
+          const out = document.querySelector(`[data-out="${name}"]`);
+          const q = tabs[name].question;
+          const html = tabs[name].render();
+          out.innerHTML = (q ? `<div class="question">${q}<p class="reveal-note">Work it out, then press “Reveal answer”.</p></div>` : "") + html;
+          out.classList.toggle("concealed", !!tabs[name].concealed);
+        }
+
+        function setupTab(name, def) {
+          tabs[name] = { ...def, question: null, concealed: false };
+          const form = formOf(name);
+          form.addEventListener("input", () => {
+            tabs[name].question = null;
+            tabs[name].concealed = false;
+            form.querySelector("[data-reveal]").hidden = true;
+            update(name);
+          });
+          form.addEventListener("submit", (e) => e.preventDefault());
+          form.querySelector("[data-quiz]").addEventListener("click", () => {
+            tabs[name].question = def.quiz();
+            tabs[name].concealed = true;
+            form.querySelector("[data-reveal]").hidden = false;
+            update(name);
+          });
+          form.querySelector("[data-reveal]").addEventListener("click", (e) => {
+            tabs[name].concealed = false;
+            e.target.hidden = true;
+            update(name);
+          });
+          update(name);
+        }
+
+        document.querySelectorAll("[data-tab]").forEach((b) =>
+          b.addEventListener("click", () => {
+            document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
+            document.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.tab));
+          })
+        );
+
+        const latStr = (v) => { const a = Math.abs(v), d = Math.floor(a), m = Math.round((a - d) * 60); return `${String(d).padStart(2, "0")} ${String(m).padStart(2, "0")}${v < 0 ? "S" : "N"}`; };
+        const lonStr = (v) => { const a = Math.abs(v), d = Math.floor(a), m = Math.round((a - d) * 60); return `${String(d).padStart(3, "0")} ${String(m).padStart(2, "0")}${v < 0 ? "W" : "E"}`; };
+
+        /* ================= DEPARTURE ================= */
+        function depDiagram(lat) {
+          const cx = 170, cy = 150, R = 115;
+          const y = cy - R * Math.sin(rad(lat)), r = R * Math.cos(rad(lat));
+          const ex = cx + r;
+          const arc = (a) => { const p = 34; return `M ${cx + p} ${cy} A ${p} ${p} 0 0 ${a >= 0 ? 0 : 1} ${cx + p * Math.cos(rad(a))} ${cy - p * Math.sin(rad(a))}`; };
+          return `
+            <svg class="diagram" viewBox="0 0 340 300" role="img" aria-label="Cross-section of the earth showing the radius of the parallel">
+              <circle cx="${cx}" cy="${cy}" r="${R}" fill="#0c1724" stroke="#2c4258" stroke-width="1.5"/>
+              <line x1="${cx}" y1="${cy - R - 14}" x2="${cx}" y2="${cy + R + 14}" stroke="#5d7086" stroke-dasharray="4 4"/>
+              <text x="${cx}" y="${cy - R - 18}" fill="#8fa1b4" font-size="11" text-anchor="middle">N pole</text>
+              <line x1="${cx - R}" y1="${cy}" x2="${cx + R}" y2="${cy}" stroke="var(--gc)" stroke-width="2"/>
+              <text x="${cx - R + 4}" y="${cy + 15}" fill="var(--gc)" font-size="11">equator · radius R</text>
+              <line x1="${cx - r}" y1="${y}" x2="${cx + r}" y2="${y}" stroke="var(--rl)" stroke-width="2.5"/>
+              <text x="${cx - r + 4}" y="${y + (lat >= 0 ? -7 : 15)}" fill="var(--rl)" font-size="11">parallel ${fmtLat(lat)}</text>
+              <line x1="${cx}" y1="${cy}" x2="${ex}" y2="${y}" stroke="#e8eef5" stroke-width="1.2"/>
+              <path d="${arc(lat)}" fill="none" stroke="#e8eef5" stroke-width="1"/>
+              <text x="${cx + 40}" y="${cy - (lat >= 0 ? 6 : -14)}" fill="#e8eef5" font-size="11">lat</text>
+              <line x1="${cx}" y1="${y}" x2="${ex}" y2="${y}" stroke="var(--geo)" stroke-width="3"/>
+              <text x="${cx + r / 2}" y="${y + (lat >= 0 ? 16 : -8)}" fill="var(--geo)" font-size="11" text-anchor="middle">R·cos lat</text>
+              <circle cx="${ex}" cy="${y}" r="3" fill="#e8eef5"/>
+            </svg>`;
+        }
+
+        setupTab("dep", {
+          render() {
+            const mode = val("dep", "mode");
+            const lat = parsePos(val("dep", "lat"), "lat");
+            if (isNaN(lat)) return errorBox("Enter a valid latitude, e.g. 52 30N.");
+            const c = Math.cos(rad(lat));
+            let res, work;
+            if (mode === "dep") {
+              const dl = parseAngle(val("dep", "dlong"));
+              if (isNaN(dl)) return errorBox("Enter the change of longitude, e.g. 10 00.");
+              const dlm = dl * 60, dep = dlm * c;
+              res = stat("Departure", `${fx(dep)} NM`, "", true) + stat("dlong in minutes", `${fx(dlm)}'`) + stat("cos lat", c.toFixed(4)) + stat("Same dlong at the equator", `${fx(dlm)} NM`);
+              work = [
+                `Departure is the east–west distance along a parallel: <code>dep = dlong(min) × cos lat</code>.`,
+                `dlong ${dm(dl)} = <code>${fx(dlm)}'</code>. At the equator each minute is 1 NM.`,
+                `The parallel's radius shrinks by cos lat: <code>cos ${fmtLat(lat)} = ${c.toFixed(4)}</code>.`,
+                `<code>${fx(dlm)} × ${c.toFixed(4)} = ${fx(dep)} NM</code>.`,
+              ];
+            } else {
+              const dep = parseFloat(val("dep", "depnm"));
+              if (isNaN(dep) || c < 1e-6) return errorBox("Enter the departure in NM (not at the pole).");
+              const dlm = dep / c;
+              res = stat("Change of longitude", `${dm(dlm / 60)}`, `${fx(dlm)} minutes`, true) + stat("cos lat", c.toFixed(4));
+              work = [
+                `<code>dlong(min) = dep ÷ cos lat</code>.`,
+                `<code>${fx(dep)} ÷ ${c.toFixed(4)} = ${fx(dlm)}'</code>, which is <code>${dm(dlm / 60)}</code>.`,
+              ];
+            }
+            return `<div class="results">${res}</div>` +
+              block("Picture", `<div class="diagram-wrap">${depDiagram(lat)}<ul class="tips"><li><strong>1' of latitude = 1 NM</strong> anywhere (along a meridian).</li><li><strong>1' of longitude = 1 NM only at the equator</strong>, and cos lat NM elsewhere.</li><li>At 60° a minute of longitude is half a nautical mile.</li></ul></div>`) +
+              block("Working", steps(work));
+          },
+          quiz() {
+            const lat = rnd(10, 70) * (Math.random() < 0.8 ? 1 : -1) + pick([0, 0.5]);
+            if (Math.random() < 0.65) {
+              const dl = rnd(2, 40) + pick([0, 0, 0.5]);
+              setVal("dep", "mode", "dep"); setVal("dep", "lat", latStr(lat)); setVal("dep", "dlong", `${Math.floor(dl)} ${String(Math.round((dl % 1) * 60)).padStart(2, "0")}`);
+              return `An aircraft flies along the parallel <b>${fmtLat(lat)}</b> through a change of longitude of <b>${dm(dl)}</b>. What distance does it cover?`;
+            }
+            const dep = rnd(60, 900);
+            setVal("dep", "mode", "dlong"); setVal("dep", "lat", latStr(lat)); setVal("dep", "depnm", dep);
+            return `Flying <b>${dep} NM</b> due east along <b>${fmtLat(lat)}</b>, what is the change of longitude?`;
+          },
+        });
+
+        /* ================= RHUMB LINE / GREAT CIRCLE ================= */
+        const merc = (lat) => deg(Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2)));
+
+        function rhumb(a, b, dLon) {
+          const dPsi = merc(b.lat) - merc(a.lat);
+          const dLat = b.lat - a.lat;
+          const q = Math.abs(dPsi) > 1e-9 ? dLat / dPsi : Math.cos(rad(a.lat));
+          const track = norm(deg(Math.atan2(dLon, dPsi)));
+          const dist = Math.hypot(dLat, q * dLon) * 60;
+          return { track, dist };
+        }
+
+        function gcTrack(a, b, dLon) {
+          const φ1 = rad(a.lat), φ2 = rad(b.lat), Δλ = rad(dLon);
+          return norm(deg(Math.atan2(Math.sin(Δλ) * Math.cos(φ2), Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ))));
+        }
+
+        function gcDist(a, b, dLon) {
+          const φ1 = rad(a.lat), φ2 = rad(b.lat), Δλ = rad(dLon);
+          const h = Math.sin((φ2 - φ1) / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+          return deg(2 * Math.asin(Math.min(1, Math.sqrt(h)))) * 60;
+        }
+
+        function gcPoints(a, b, dLon, n = 60) {
+          const v = (lat, lon) => [Math.cos(rad(lat)) * Math.cos(rad(lon)), Math.cos(rad(lat)) * Math.sin(rad(lon)), Math.sin(rad(lat))];
+          const p = v(a.lat, 0), q = v(b.lat, dLon);
+          const om = Math.acos(Math.min(1, p[0] * q[0] + p[1] * q[1] + p[2] * q[2]));
+          const pts = [];
+          for (let i = 0; i <= n; i++) {
+            const t = i / n;
+            const s1 = om < 1e-9 ? 1 - t : Math.sin((1 - t) * om) / Math.sin(om), s2 = om < 1e-9 ? t : Math.sin(t * om) / Math.sin(om);
+            const x = s1 * p[0] + s2 * q[0], y = s1 * p[1] + s2 * q[1], z = s1 * p[2] + s2 * q[2];
+            pts.push([a.lon + deg(Math.atan2(y, x)), deg(Math.atan2(z, Math.hypot(x, y)))]);
+          }
+          return pts;
+        }
+
+        function mercDiagram(a, b, dLon) {
+          const gc = gcPoints(a, b, dLon);
+          const xs = gc.map((p) => p[0]), ys = gc.map((p) => merc(p[1]));
+          const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+          const cxm = (x0 + x1) / 2, cym = (y0 + y1) / 2;
+          const W = 520, H = 330;
+          const k = Math.min(W / (Math.max(x1 - x0, 4) * 1.3), H / (Math.max(y1 - y0, 4) * 1.4));   // same scale on both axes keeps angles true
+          const span = Math.max(W, H) / k;
+          const X = (lon) => W / 2 + (lon - cxm) * k;
+          const Y = (lat) => H / 2 - (merc(lat) - cym) * k;
+          // graticule
+          const step = span > 40 ? 10 : span > 15 ? 5 : 2;
+          let grid = "";
+          const lonMin = cxm - W / 2 / k, lonMax = cxm + W / 2 / k;
+          for (let L = Math.ceil(lonMin / step) * step; L <= lonMax; L += step) {
+            grid += `<line x1="${X(L)}" y1="0" x2="${X(L)}" y2="${H}" stroke="#1f3145"/><text x="${X(L) + 3}" y="${H - 5}" fill="#5d7086" font-size="10">${Math.abs(signed(L))}°${signed(L) < 0 ? "W" : signed(L) > 0 ? "E" : ""}</text>`;
+          }
+          for (let la = -80; la <= 80; la += step) {
+            const yy = Y(la);
+            if (yy < 0 || yy > H) continue;
+            grid += `<line x1="0" y1="${yy}" x2="${W}" y2="${yy}" stroke="#1f3145"/><text x="4" y="${yy - 3}" fill="#5d7086" font-size="10">${Math.abs(la)}°${la < 0 ? "S" : la > 0 ? "N" : ""}</text>`;
+          }
+          const gcPath = gc.map((p, i) => `${i ? "L" : "M"} ${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(" ");
+          const ax = X(a.lon), ay = Y(a.lat), bx = X(a.lon + dLon), by = Y(b.lat);
+          return `
+            <svg class="diagram" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mercator chart with the rhumb line and great circle">
+              <defs><clipPath id="mclip"><rect width="${W}" height="${H}"/></clipPath></defs>
+              <g clip-path="url(#mclip)">
+                <rect width="${W}" height="${H}" fill="#0c1724"/>
+                ${grid}
+                <line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="var(--rl)" stroke-width="2.5"/>
+                <path d="${gcPath}" fill="none" stroke="var(--gc)" stroke-width="2.5" stroke-dasharray="7 4"/>
+                <circle cx="${ax}" cy="${ay}" r="5" fill="#e8eef5"/><text x="${ax + 8}" y="${ay + 16}" fill="#e8eef5" font-size="13" font-weight="700">A</text>
+                <circle cx="${bx}" cy="${by}" r="5" fill="#e8eef5"/><text x="${bx + 8}" y="${by + 16}" fill="#e8eef5" font-size="13" font-weight="700">B</text>
+              </g>
+            </svg>`;
+        }
+
+        setupTab("gc", {
+          render() {
+            const a = { lat: parsePos(val("gc", "alat"), "lat"), lon: parsePos(val("gc", "alon"), "lon") };
+            const b = { lat: parsePos(val("gc", "blat"), "lat"), lon: parsePos(val("gc", "blon"), "lon") };
+            if ([a.lat, a.lon, b.lat, b.lon].some(isNaN)) return errorBox("Enter valid positions, e.g. 50 00N and 005 00W.");
+            if (Math.abs(a.lat) > 85 || Math.abs(b.lat) > 85) return errorBox("Keep latitudes within 85° (Mercator can't show the poles).");
+            const dLon = signed(b.lon - a.lon);
+            if (Math.abs(dLon) < 1e-9 && Math.abs(b.lat - a.lat) < 1e-9) return errorBox("A and B are the same point.");
+            const meanLat = (a.lat + b.lat) / 2;
+            const conv = dLon * Math.sin(rad(meanLat));        // signed, degrees
+            const ca = conv / 2;
+            const rl = rhumb(a, b, dLon);
+            const gi = gcTrack(a, b, dLon);
+            const gf = norm(gcTrack(b, a, -dLon) + 180);
+            const gd = gcDist(a, b, dLon);
+            const examI = norm(rl.track - ca), examF = norm(rl.track + ca);
+            const ew = dLon >= 0 ? "east" : "west", ns = meanLat >= 0 ? "northern" : "southern";
+            const along = Math.abs(dLon) < 1e-9 || Math.abs(Math.abs(dLon) - 180) < 1e-9;
+
+            const res =
+              stat("Rhumb line track", `${trk(rl.track)}T`, "Constant all the way", true) +
+              stat("Great circle initial", `${trk(gi)}T`, `Exam method: ${trk(examI)}`, true) +
+              stat("Great circle final", `${trk(gf)}T`, `Exam method: ${trk(examF)}`) +
+              stat("Convergency", `${fx(Math.abs(conv))}°`, "dlong × sin mean lat") +
+              stat("Conversion angle", `${fx(Math.abs(ca))}°`, "½ × convergency") +
+              stat("dlat / dlong", `${fx(Math.abs(b.lat - a.lat) * 60, 0)}' / ${fx(Math.abs(dLon) * 60, 0)}'`, `${b.lat >= a.lat ? "N" : "S"} / ${dLon >= 0 ? "E" : "W"}`) +
+              stat("Rhumb line distance", `${fx(rl.dist, 0)} NM`) +
+              stat("Great circle distance", `${fx(gd, 0)} NM`, `${fx(rl.dist - gd, 0)} NM shorter`);
+
+            const work = [
+              `Mean latitude <code>(${fmtLat(a.lat)} + ${fmtLat(b.lat)}) ÷ 2 = ${fmtLat(meanLat)}</code>; dlong <code>${dm(Math.abs(dLon))} ${dLon >= 0 ? "E" : "W"}</code>.`,
+              `Convergency <code>= dlong × sin mean lat = ${fx(Math.abs(dLon), 2)} × ${Math.abs(Math.sin(rad(meanLat))).toFixed(4)} = ${fx(Math.abs(conv), 2)}°</code>. That's how much the meridians at A and B differ in direction.`,
+              `Conversion angle <code>= ½ × ${fx(Math.abs(conv), 2)} = ${fx(Math.abs(ca), 2)}°</code>: the angle between the great circle and the rhumb line at each end.`,
+              `The great circle always lies on the <strong>pole side</strong> of the rhumb line. Going ${ew} in the ${ns} hemisphere, the GC starts ${(ca >= 0) ? "left" : "right"} of the RL track and ends ${(ca >= 0) ? "right" : "left"} of it.`,
+              `So <code>GC initial = ${trk(rl.track)} ${ca >= 0 ? "−" : "+"} ${fx(Math.abs(ca), 2)} = ${trk(examI)}</code> and <code>GC final = ${trk(rl.track)} ${ca >= 0 ? "+" : "−"} ${fx(Math.abs(ca), 2)} = ${trk(examF)}</code>.`,
+              `The exact spherical values are ${trk(gi)} and ${trk(gf)}. The mean-latitude method is the exam approximation and is close for short distances.`,
+            ];
+            if (along) work.push("Here A and B are on the same meridian, so the rhumb line and great circle coincide.");
+            return `<div class="results">${res}</div>` +
+              block("Mercator chart", `<div class="diagram-wrap">${mercDiagram(a, b, dLon)}<ul class="legend">
+                <li><i style="background:var(--rl)"></i><span><b>Rhumb line</b>: a straight line on Mercator, crossing every meridian at the same angle.</span></li>
+                <li><i style="background:var(--gc)"></i><span><b>Great circle</b>: the shortest route, curving towards the pole on Mercator.</span></li></ul></div>`) +
+              block("Working", steps(work));
+          },
+          quiz() {
+            const latA = rnd(30, 62) * (Math.random() < 0.8 ? 1 : -1);
+            const latB = Math.max(-80, Math.min(80, latA + rnd(-8, 8)));
+            const lonA = rnd(-30, 20), dl = rnd(10, 50) * (Math.random() < 0.5 ? 1 : -1);
+            setVal("gc", "alat", latStr(latA)); setVal("gc", "alon", lonStr(lonA));
+            setVal("gc", "blat", latStr(latB)); setVal("gc", "blon", lonStr(signed(lonA + dl)));
+            return pick([
+              `What is the <b>initial great circle track</b> from A to B? Use the convergency method.`,
+              `What are the <b>convergency</b> and the <b>conversion angle</b> between A and B?`,
+              `The rhumb line track from A to B is about ${trk(rhumb({ lat: latA }, { lat: latB }, dl).track)}. What is the <b>great circle track at B</b>?`,
+            ]);
+          },
+        });
+
+        /* ================= CHART CONVERGENCE ================= */
+        function convDiagram(angle, label) {
+          const W = 320, H = 220, cx = W / 2, top = 20, len = 180;
+          const half = Math.min(Math.abs(angle), 170) / 2;
+          const p = (s) => [cx + s * len * Math.sin(rad(half)), top + len * Math.cos(rad(half))];
+          const [lx, ly] = p(-1), [rx, ry] = p(1);
+          return `
+            <svg class="diagram" viewBox="0 0 ${W} ${H}" role="img" aria-label="Two meridians on the chart and the angle between them">
+              <rect width="${W}" height="${H}" fill="#0c1724" rx="8"/>
+              ${half < 0.05
+                ? `<line x1="${cx - 50}" y1="${top}" x2="${cx - 50}" y2="${top + len}" stroke="var(--gc)" stroke-width="2"/><line x1="${cx + 50}" y1="${top}" x2="${cx + 50}" y2="${top + len}" stroke="var(--gc)" stroke-width="2"/><text x="${cx}" y="${top + len / 2}" fill="#e8eef5" font-size="12" text-anchor="middle">parallel meridians</text>`
+                : `<line x1="${cx}" y1="${top}" x2="${lx}" y2="${ly}" stroke="var(--gc)" stroke-width="2"/><line x1="${cx}" y1="${top}" x2="${rx}" y2="${ry}" stroke="var(--gc)" stroke-width="2"/>
+                   <path d="M ${cx + 40 * Math.sin(rad(-half))} ${top + 40 * Math.cos(rad(half))} A 40 40 0 0 0 ${cx + 40 * Math.sin(rad(half))} ${top + 40 * Math.cos(rad(half))}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+                   <text x="${cx + 40 * Math.sin(rad(half)) + 10}" y="${top + 44}" fill="var(--accent)" font-size="13" font-weight="600">${label}</text>`}
+              <text x="${cx}" y="${H - 6}" fill="#8fa1b4" font-size="11" text-anchor="middle">meridians as drawn on the chart</text>
+            </svg>`;
+        }
+
+        setupTab("conv", {
+          render() {
+            const proj = val("conv", "proj");
+            const dl = parseAngle(val("conv", "dlong"));
+            const lat = parsePos(val("conv", "lat"), "lat");
+            if (isNaN(dl)) return errorBox("Enter the change of longitude.");
+            if (isNaN(lat)) return errorBox("Enter the mean latitude.");
+            let n, nTxt, origin = null;
+            if (proj === "lcc") {
+              const s1 = parsePos(val("conv", "sp1"), "lat"), s2 = parsePos(val("conv", "sp2"), "lat");
+              if (isNaN(s1) || isNaN(s2)) return errorBox("Enter both standard parallels.");
+              origin = (s1 + s2) / 2;
+              n = Math.sin(rad(origin));
+              nTxt = `n = sin(parallel of origin) = sin ${fmtLat(origin)} = ${n.toFixed(4)}`;
+            } else if (proj === "merc") { n = 0; nTxt = "n = 0: meridians are parallel"; }
+            else { n = 1; nTxt = "n = 1 (sin 90°): the pole is the parallel of origin"; }
+            const chart = dl * Math.abs(n), earth = dl * Math.abs(Math.sin(rad(lat)));
+            const diff = chart - earth;
+            const res =
+              stat("Chart convergence", `${fx(chart, 2)}°`, "dlong × n", true) +
+              stat("Earth convergency", `${fx(earth, 2)}°`, "dlong × sin mean lat") +
+              stat("Constant of the cone n", n.toFixed(4), origin !== null ? `Parallel of origin ${fmtLat(origin)}` : "") +
+              stat("Chart − earth", `${diff >= 0 ? "+" : ""}${fx(diff, 2)}°`, Math.abs(diff) < 0.05 ? "They agree here" : diff > 0 ? "Chart converges more" : "Chart converges less");
+            const tips = {
+              lcc: ["Chart convergence is the <strong>same everywhere</strong> on the chart: it depends only on n.", "Chart = earth at the parallel of origin. Closer to the pole the chart converges less than the earth; nearer the equator, more.", "A straight line is very close to a great circle (it curves slightly towards the parallel of origin)."],
+              merc: ["Meridians are parallel, so chart convergence is always 0.", "A straight line is a rhumb line. Great circles curve towards the pole.", "Scale grows with sec lat."],
+              ps: ["Chart convergence = dlong, because n = 1.", "It matches the earth exactly at the pole and exceeds it everywhere else.", "A straight line is close to a great circle near the pole. Used for polar navigation and grid navigation."],
+            }[proj];
+            return `<div class="results">${res}</div>` +
+              block("Picture", `<div class="diagram-wrap">${convDiagram(chart, `${fx(chart, 1)}°`)}<ul class="tips">${tips.map((t) => `<li>${t}</li>`).join("")}</ul></div>`) +
+              block("Working", steps([
+                nTxt + ".",
+                `Chart convergence <code>= dlong × n = ${fx(dl, 2)} × ${n.toFixed(4)} = ${fx(chart, 2)}°</code>.`,
+                `Earth convergency at ${fmtLat(lat)} <code>= ${fx(dl, 2)} × sin ${fx(Math.abs(lat), 2)}° = ${fx(earth, 2)}°</code>.`,
+              ]));
+          },
+          quiz() {
+            const proj = pick(["lcc", "lcc", "merc", "ps"]);
+            setVal("conv", "proj", proj);
+            const dl = rnd(5, 40);
+            setVal("conv", "dlong", dl);
+            setVal("conv", "lat", latStr(rnd(30, 70)));
+            if (proj === "lcc") {
+              const s1 = rnd(20, 50), s2 = s1 + rnd(4, 20);
+              setVal("conv", "sp1", latStr(s1)); setVal("conv", "sp2", latStr(s2));
+              return `On a Lambert chart with standard parallels <b>${s1}°N</b> and <b>${s2}°N</b>, what is the convergence between two meridians <b>${dl}°</b> apart?`;
+            }
+            return `On a <b>${proj === "merc" ? "Mercator" : "polar stereographic"}</b> chart, what is the convergence between meridians <b>${dl}°</b> apart?`;
+          },
+        });
+
+        /* ================= SCALE ================= */
+        setupTab("scale", {
+          render() {
+            const mode = val("scale", "mode");
+            const N = parseFloat(val("scale", "n"));
+            const cm = parseFloat(val("scale", "cm"));
+            const nm = parseFloat(val("scale", "nm"));
+            const CM_PER_NM = 185200;
+            if (mode === "earth") {
+              if (!(N > 0) || !(cm > 0)) return errorBox("Enter the scale and the chart length.");
+              const d = (cm * N) / CM_PER_NM;
+              return `<div class="results">${stat("Earth distance", `${fx(d)} NM`, "", true)}${stat("In km", `${fx(d * 1.852)} km`)}${stat("1 cm on the chart", `${fx(N / CM_PER_NM, 2)} NM`)}</div>` +
+                block("Working", steps([`Earth distance = chart length × scale: <code>${cm} cm × ${N.toLocaleString("en")} = ${(cm * N).toLocaleString("en")} cm</code>.`, `1 NM = 1852 m = 185 200 cm, so <code>${(cm * N).toLocaleString("en")} ÷ 185 200 = ${fx(d)} NM</code>.`]));
+            }
+            if (mode === "chart") {
+              if (!(N > 0) || !(nm > 0)) return errorBox("Enter the scale and the earth distance.");
+              const c = (nm * CM_PER_NM) / N;
+              return `<div class="results">${stat("Chart length", `${fx(c, 2)} cm`, "", true)}${stat("In mm", `${fx(c * 10, 0)} mm`)}</div>` +
+                block("Working", steps([`<code>${nm} NM × 185 200 = ${(nm * CM_PER_NM).toLocaleString("en")} cm</code> on the earth.`, `Divide by the scale: <code>÷ ${N.toLocaleString("en")} = ${fx(c, 2)} cm</code>.`]));
+            }
+            if (mode === "scale") {
+              if (!(cm > 0) || !(nm > 0)) return errorBox("Enter the chart length and the earth distance.");
+              const s = (nm * CM_PER_NM) / cm;
+              return `<div class="results">${stat("Scale", `1 : ${Math.round(s).toLocaleString("en")}`, "", true)}</div>` +
+                block("Working", steps([`Scale = chart length ÷ earth distance, in the same units.`, `<code>${nm} NM = ${(nm * CM_PER_NM).toLocaleString("en")} cm</code>; <code>${(nm * CM_PER_NM).toLocaleString("en")} ÷ ${cm} = ${Math.round(s).toLocaleString("en")}</code>, so 1 : ${Math.round(s).toLocaleString("en")}.`]));
+            }
+            const l1 = parsePos(val("scale", "lat1"), "lat"), l2 = parsePos(val("scale", "lat2"), "lat");
+            if (!(N > 0) || isNaN(l1) || isNaN(l2) || Math.abs(l2) >= 89 || Math.abs(l1) >= 89) return errorBox("Enter the scale and two latitudes (not at the poles).");
+            const N2 = (N * Math.cos(rad(l2))) / Math.cos(rad(l1));
+            return `<div class="results">${stat(`Scale at ${fmtLat(l2)}`, `1 : ${Math.round(N2).toLocaleString("en")}`, N2 < N ? "Larger scale: more detail" : "Smaller scale", true)}${stat("Scale factor", fx(Math.cos(rad(l1)) / Math.cos(rad(l2)), 3), "sec lat2 ÷ sec lat1")}</div>` +
+              block("Working", steps([
+                `On a Mercator chart the scale is proportional to <code>sec lat</code> (1 ÷ cos lat), so it grows towards the poles.`,
+                `<code>N₂ = N₁ × cos lat₂ ÷ cos lat₁ = ${N.toLocaleString("en")} × ${Math.cos(rad(l2)).toFixed(4)} ÷ ${Math.cos(rad(l1)).toFixed(4)} = ${Math.round(N2).toLocaleString("en")}</code>.`,
+                `Rule of thumb: at 60° the Mercator scale is twice the scale at the equator.`,
+              ]));
+          },
+          quiz() {
+            const mode = pick(["earth", "chart", "scale", "merc"]);
+            setVal("scale", "mode", mode);
+            const N = pick([250000, 500000, 1000000, 1500000, 2000000]);
+            setVal("scale", "n", N);
+            if (mode === "earth") { const cm = rnd(30, 250) / 10; setVal("scale", "cm", cm); return `On a <b>1:${N.toLocaleString("en")}</b> chart you measure <b>${cm} cm</b>. What distance is that in NM?`; }
+            if (mode === "chart") { const nm = rnd(15, 200); setVal("scale", "nm", nm); return `How long is a <b>${nm} NM</b> leg on a <b>1:${N.toLocaleString("en")}</b> chart?`; }
+            if (mode === "scale") { const nm = rnd(20, 120), cm = rnd(40, 250) / 10; setVal("scale", "nm", nm); setVal("scale", "cm", cm); return `<b>${nm} NM</b> measures <b>${cm} cm</b> on a chart. What is its scale?`; }
+            const l1 = pick([0, 30, 40, 45]), l2 = rnd(50, 70);
+            setVal("scale", "lat1", latStr(l1)); setVal("scale", "lat2", latStr(l2));
+            return `A Mercator chart has a scale of <b>1:${N.toLocaleString("en")}</b> at <b>${l1}°${l1 ? "N" : ""}</b>. What is the scale at <b>${l2}°N</b>?`;
+          },
+        });
+
+        /* ================= ARC & TIME ================= */
+        setupTab("time", {
+          render() {
+            const mode = val("time", "mode");
+            formOf("time").querySelector("[data-label]").textContent = mode === "utc" ? "LMT (hh:mm)" : "UTC (hh:mm)";
+            const lon = parsePos(val("time", "lon"), "lon");
+            if (isNaN(lon)) return errorBox("Enter a valid longitude, e.g. 003 45W.");
+            const arcMin = lon * 4;   // 1° = 4 min of time
+            const arcTxt = `${hms(Math.abs(arcMin))} ${lon >= 0 ? "(east: ahead of UTC)" : "(west: behind UTC)"}`;
+            const arcWork = [
+              `Earth turns 360° in 24 h, so <code>15° = 1 h</code>, <code>1° = 4 min</code>, <code>15' = 1 min</code> and <code>1' = 4 s</code>.`,
+              `<code>${dm(Math.abs(lon))} × 4 min = ${hms(Math.abs(arcMin))}</code>.`,
+            ];
+            if (mode === "arc")
+              return `<div class="results">${stat("Arc in time", hms(Math.abs(arcMin)), lon >= 0 ? "East longitude" : "West longitude", true)}</div>` + block("Working", steps(arcWork));
+
+            const m = val("time", "t").trim().match(/^(\d{1,2}):?(\d{2})$/);
+            if (!m || +m[1] > 23 || +m[2] > 59) return errorBox("Enter a time as hh:mm.");
+            const t = +m[1] * 60 + +m[2];
+            const toLmt = mode === "lmt";
+            const r = clock(toLmt ? t + arcMin : t - arcMin);
+            const dayTxt = r.day > 0 ? " (next day)" : r.day < 0 ? " (previous day)" : "";
+            const rule = toLmt ? "LMT = UTC + longitude east (− longitude west)" : "UTC = LMT − longitude east (+ longitude west)";
+            return `<div class="results">${stat(toLmt ? "LMT" : "UTC", r.txt + dayTxt, "", true)}${stat("Longitude in time", hms(Math.abs(arcMin)), lon >= 0 ? "East" : "West")}</div>` +
+              block("Working", steps([...arcWork,
+                `<code>${rule}</code>. Memory aid: <strong>longitude east, UTC least; longitude west, UTC best</strong>.`,
+                `<code>${m[1].padStart(2, "0")}:${m[2]} ${toLmt === lon >= 0 ? "+" : "−"} ${hms(Math.abs(arcMin))} = ${r.txt}${dayTxt}</code>.`,
+              ]));
+          },
+          quiz() {
+            const mode = pick(["lmt", "utc", "arc"]);
+            setVal("time", "mode", mode);
+            const lon = (rnd(1, 170) + pick([0, 0.25, 0.5, 0.75])) * (Math.random() < 0.5 ? -1 : 1);
+            setVal("time", "lon", lonStr(lon));
+            const t = `${String(rnd(0, 23)).padStart(2, "0")}:${pick(["00", "15", "30", "45", "10", "50"])}`;
+            setVal("time", "t", t);
+            if (mode === "arc") return `Convert the longitude <b>${fmtLon(lon)}</b> to time.`;
+            return mode === "lmt" ? `It is <b>${t} UTC</b>. What is the LMT at <b>${fmtLon(lon)}</b>?` : `It is <b>${t} LMT</b> at <b>${fmtLon(lon)}</b>. What time is it UTC?`;
+          },
+        });
+      })();
+    </script>
+    <script src="../home-link.js" defer></script>
+  </body>
+</html>
